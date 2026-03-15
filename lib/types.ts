@@ -253,3 +253,45 @@ export interface DailySummary {
   sessionStatus: MarketSession;
   lastUpdated: string;
 }
+
+// ─── Socials ──────────────────────────────────────────────────────────────────
+
+export type SocialSource = 'twitter' | 'linkedin' | 'substack' | 'youtube';
+export type SocialCategory = 'aandelen' | 'etfs' | 'crypto' | 'macro';
+
+export interface SocialPost {
+  id: string;
+  author: {
+    name: string;
+    handle: string;
+    initials: string;
+    role: string;
+    avatarColor: string;
+    verified: boolean;
+  };
+  timestamp: string;
+  source: SocialSource;
+  content: string;
+  tickers: string[];
+  sentiment: Sentiment;
+  category: SocialCategory;
+  importance: 'hoog' | 'gemiddeld' | 'laag';
+  whyItMatters: string;
+  likes: number;
+  reposts: number;
+}
+
+export interface TrendingTopic {
+  ticker: string;
+  name: string;
+  mentions: number;
+  sentiment: Sentiment;
+  changePercent?: number;
+}
+
+export interface SocialsData {
+  posts: SocialPost[];
+  trending: TrendingTopic[];
+  lastUpdated: string;
+  dataStatus: DataStatus;
+}

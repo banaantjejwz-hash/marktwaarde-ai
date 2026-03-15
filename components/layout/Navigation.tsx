@@ -67,6 +67,16 @@ const ChatIcon = () => (
   </svg>
 );
 
+const SocialsIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <circle cx="8" cy="4" r="2" stroke="currentColor" strokeWidth="1.25" />
+    <circle cx="3" cy="12" r="1.75" stroke="currentColor" strokeWidth="1.25" />
+    <circle cx="13" cy="12" r="1.75" stroke="currentColor" strokeWidth="1.25" />
+    <path d="M5.5 10.5L7 6M10.5 10.5L9 6" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+    <path d="M4.5 12h7" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+  </svg>
+);
+
 const primaryNavItems: NavItem[] = [
   { href: '/marktwaarde', label: 'Overzicht', icon: <HomeIcon /> },
   { href: '/marktwaarde/daghandel', label: 'Daghandel', icon: <ChartBarIcon /> },
@@ -78,6 +88,7 @@ const primaryNavItems: NavItem[] = [
 const secondaryNavItems: NavItem[] = [
   { href: '/marktwaarde/nieuws', label: 'Nieuws', icon: <NewsIcon /> },
   { href: '/marktwaarde/strategie', label: 'Strategie', icon: <StrategyIcon /> },
+  { href: '/marktwaarde/socials', label: 'Socials', icon: <SocialsIcon /> },
 ];
 
 const aiNavItem: NavItem = {
@@ -140,6 +151,13 @@ export default function Navigation() {
   }
 
   const allMobileItems = [...primaryNavItems, aiNavItem, ...secondaryNavItems];
+  const mobileBarItems = [
+    primaryNavItems[0], // Overzicht
+    primaryNavItems[1], // Daghandel
+    primaryNavItems[4], // Bitcoin
+    secondaryNavItems[2], // Socials
+    aiNavItem,
+  ];
 
   return (
     <>
@@ -198,7 +216,7 @@ export default function Navigation() {
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <ul className="flex items-center justify-around h-16 px-2">
-          {[...primaryNavItems.slice(0, 4), aiNavItem].map((item) => {
+          {mobileBarItems.map((item) => {
             const isActive = isItemActive(item);
             const isAI = item.accent === 'blue';
             return (
@@ -217,12 +235,12 @@ export default function Navigation() {
                   </span>
                   {isActive && (
                     <span className="truncate text-center font-medium leading-none">
-                      {item.label === 'Avondbriefing' ? 'Avond' : item.label === 'AI Adviseur' ? 'AI' : item.label}
+                      {item.label === 'AI Adviseur' ? 'AI' : item.label}
                     </span>
                   )}
                   {!isActive && (
                     <span className="truncate text-center font-medium leading-none opacity-80">
-                      {item.label === 'Avondbriefing' ? 'Avond' : item.label === 'AI Adviseur' ? 'AI' : item.label}
+                      {item.label === 'AI Adviseur' ? 'AI' : item.label}
                     </span>
                   )}
                 </Link>
