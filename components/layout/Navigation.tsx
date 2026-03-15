@@ -83,12 +83,12 @@ const primaryNavItems: NavItem[] = [
   { href: '/marktwaarde/maandelijks', label: 'Maandelijks', icon: <CalendarIcon /> },
   { href: '/marktwaarde/avondbriefing', label: 'Avondbriefing', icon: <MoonIcon /> },
   { href: '/marktwaarde/bitcoin', label: 'Bitcoin', icon: <BitcoinIcon /> },
+  { href: '/marktwaarde/socials', label: 'Socials', icon: <SocialsIcon /> },
 ];
 
 const secondaryNavItems: NavItem[] = [
   { href: '/marktwaarde/nieuws', label: 'Nieuws', icon: <NewsIcon /> },
   { href: '/marktwaarde/strategie', label: 'Strategie', icon: <StrategyIcon /> },
-  { href: '/marktwaarde/socials', label: 'Socials', icon: <SocialsIcon /> },
 ];
 
 const aiNavItem: NavItem = {
@@ -155,7 +155,7 @@ export default function Navigation() {
     primaryNavItems[0], // Overzicht
     primaryNavItems[1], // Daghandel
     primaryNavItems[4], // Bitcoin
-    secondaryNavItems[2], // Socials
+    primaryNavItems[5], // Socials
     aiNavItem,
   ];
 
