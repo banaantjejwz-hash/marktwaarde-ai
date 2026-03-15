@@ -121,9 +121,9 @@ export default function MarketStatusBar() {
       {mounted && sessionInfo ? (
         <SessionBadge info={sessionInfo} />
       ) : (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-medium bg-slate-700/30 border border-slate-700 text-slate-400">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-medium bg-slate-700/30 border border-slate-700">
           <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-          Laden…
+          <span className="opacity-0 select-none">Markt gesloten</span>
         </span>
       )}
 

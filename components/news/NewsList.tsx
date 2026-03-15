@@ -161,7 +161,7 @@ export default function NewsList({
       {/* ── Count ── */}
       {filtered.length > 0 && (
         <p className="text-xs text-slate-600 text-right">
-          {filtered.length} item{filtered.length !== 1 ? 's' : ''} weergegeven
+          {filtered.length} {filtered.length === 1 ? 'nieuwsitem' : 'nieuwsitems'} weergegeven
         </p>
       )}
     </div>

@@ -584,7 +584,7 @@ export const monthlyCategoryComparison: CategoryComparison = {
 
 export const monthlyAdvice: AdviceBlock = {
   title: 'Advies voor deze maand',
-  subtitle: 'Maandelijkse allocatie — maart 2025',
+  subtitle: 'Maandelijkse allocatie — maart 2026',
   summary:
     'De markt bevindt zich in een correctiefase na sterke prestaties eerder dit jaar. VIX boven 20 en Fed-hawkishness creëren verhoogde onzekerheid. Dit is geen paniek, maar selectiviteit is vereist. ETFs verdienen de voorkeur boven losse aandelen voor de kernpositie. NVDA en MSFT zijn de meest kansrijke losse aandelen. Bitcoin is tijdelijk minder aantrekkelijk door ETF-uitstroom maar fundamentals op lange termijn intact.',
   mainDrivers: [

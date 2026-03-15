@@ -1,382 +1,676 @@
 'use client';
 
+import { useState } from 'react';
 import {
   bitcoinMarket,
   tradeSetups,
   allNewsItems,
-  dailyAdvice,
-  monthlyAdvice,
   monthlyCategoryComparison,
+  MOCK_REFERENCE_NOW,
 } from '@/lib/mockData';
-import { formatPrice, formatTime } from '@/lib/utils';
-import BitcoinSignalGrid from '@/components/bitcoin/BitcoinSignalGrid';
-import ScenarioPanel from '@/components/advice/ScenarioPanel';
-import NewsList from '@/components/news/NewsList';
-import SectionHeader from '@/components/common/SectionHeader';
-import DataStatusBadge from '@/components/common/DataStatusBadge';
-import FreshnessLabel from '@/components/common/FreshnessLabel';
 import ChangeIndicator from '@/components/common/ChangeIndicator';
 import ScoreBar from '@/components/common/ScoreBar';
-import TradeabilityBadge from '@/components/common/TradeabilityBadge';
+import NewsList from '@/components/news/NewsList';
 
-// ── Derived data ─────────────────────────────────────────────────────────────
+// ─── Derived data ─────────────────────────────────────────────────────────────
 
 const btcSetup = tradeSetups.find((s) => s.ticker === 'BTC') ?? tradeSetups[2];
 const btcNewsItems = allNewsItems.filter((n) =>
   n.affectedCategories.includes('bitcoin')
 );
+const btcAllocationPct = monthlyCategoryComparison.sampleAllocation.bitcoin;
 const btcScore = monthlyCategoryComparison.scores.bitcoin;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Static display strings (derived from fixed mock reference — hydration safe) ─
 
-function formatBtcPrice(value: number): string {
-  return new Intl.NumberFormat('nl-NL', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
+const _ref = new Date(MOCK_REFERENCE_NOW);
+const _upd = new Date('2026-03-13T14:45:00.000Z');
+
+const CURRENT_MONTH = _ref.toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' }); // "maart 2026"
+const UPDATED_LABEL =
+  _upd.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' }) +
+  ', ' +
+  _upd.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) +
+  ' CET';
+
+// ─── Format helper ────────────────────────────────────────────────────────────
+
+function fmtUsd(n: number): string {
+  return (
+    '$' +
+    new Intl.NumberFormat('nl-NL', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(n)
+  );
 }
 
-// ── Key levels data for display ───────────────────────────────────────────────
+// ─── Recommendation config ────────────────────────────────────────────────────
+
+const recoConfig = {
+  'bevestiging-nodig': {
+    label: 'Wacht op bevestiging',
+    badgeBg: 'bg-amber-500/15 border-amber-500/30 text-amber-400',
+    dotColor: 'bg-amber-400',
+    riskLabel: 'Verhoogd',
+    riskBg: 'bg-orange-500/15 border-orange-500/30 text-orange-400',
+    summary:
+      'Bitcoin bevindt zich in een steunzone, maar er is nog geen duidelijk koopsignaal. Wacht op een bevestiging — een duidelijke omkeringskaarrs of volume-bevestiging — voor je instapt.',
+    actionToday: `Koopzone $89.500–$91.500 is actief. Wacht op een herstel-signaal (reversal-candle + volume) voor je instapt. Stop-loss altijd op $87.200 instellen.`,
+    actionMonth: `Maximaal ${btcAllocationPct}% van je maandelijkse inleg in Bitcoin. Spreid over meerdere weken (DCA) om instaprisico te verlagen.`,
+    actionLongTerm:
+      'Structureel positief. De halvering-cyclus is intact. Grote correcties zijn historisch gezien koopkansen voor beleggers met een horizon van 2+ jaar.',
+  },
+  actionable: {
+    label: 'Entry mogelijk',
+    badgeBg: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400',
+    dotColor: 'bg-emerald-400',
+    riskLabel: 'Gemiddeld',
+    riskBg: 'bg-amber-500/15 border-amber-500/30 text-amber-400',
+    summary:
+      'Er is een duidelijk instapmoment. Technische condities en signalen wijzen op een mogelijke opstoot.',
+    actionToday: 'Entry zone actief. Bevestig met volume voor je instapt.',
+    actionMonth: 'Reguliere maandelijkse allocatie is van toepassing.',
+    actionLongTerm: 'Structureel bullish. Halvering-cyclus intact.',
+  },
+  'alleen-observeren': {
+    label: 'Alleen observeren',
+    badgeBg: 'bg-slate-700/50 border-slate-600 text-slate-300',
+    dotColor: 'bg-slate-400',
+    riskLabel: 'Verhoogd',
+    riskBg: 'bg-orange-500/15 border-orange-500/30 text-orange-400',
+    summary:
+      'Condities zijn onduidelijk. Observeer de markt en wacht op een duidelijker signaal voor je actie onderneemt.',
+    actionToday: 'Geen posities innemen. Prijsontwikkeling volgen.',
+    actionMonth: 'Minimale allocatie of geen. Betere momenten komen.',
+    actionLongTerm: 'Langetermijnverhaal intact, maar timing is ongunstig.',
+  },
+  vermijden: {
+    label: 'Vermijden',
+    badgeBg: 'bg-red-500/15 border-red-500/30 text-red-400',
+    dotColor: 'bg-red-400',
+    riskLabel: 'Hoog',
+    riskBg: 'bg-red-500/15 border-red-500/30 text-red-400',
+    summary:
+      'Condities zijn ongunstig. Wacht op betere omstandigheden voor je instapt.',
+    actionToday: 'Geen posities innemen.',
+    actionMonth: 'Geen allocatie deze maand.',
+    actionLongTerm: 'Langetermijnverhaal intact, maar timing is ongunstig.',
+  },
+} as const;
+
+type RecoKey = keyof typeof recoConfig;
+const recoKey: RecoKey =
+  btcSetup.tradeabilityState in recoConfig
+    ? (btcSetup.tradeabilityState as RecoKey)
+    : 'bevestiging-nodig';
+const reco = recoConfig[recoKey];
+
+// ─── "Why" signals ────────────────────────────────────────────────────────────
+
+const whySignals = [
+  {
+    icon: '↑',
+    title: 'Ervaren houders verkopen niet',
+    technical: 'LTH HODL Wave stabiel op 75,8%',
+    plain:
+      '75,8% van alle Bitcoin wordt vastgehouden door mensen die al meer dan 6 maanden bezitten. Die verkopen nu niet. Dit is een teken van langdurige overtuiging in de markt.',
+    impact: 'Positief voor de prijs op termijn',
+    colorText: 'text-emerald-400',
+    bgClass: 'bg-emerald-500/10 border-emerald-500/20',
+    impactBg: 'bg-emerald-500/15 border-emerald-500/25 text-emerald-400',
+  },
+  {
+    icon: '↓',
+    title: 'Grote fondsen trekken zich terug',
+    technical: 'ETF-uitstroom: −$890 mln in 7 dagen',
+    plain:
+      'In de afgelopen week hebben grote beleggers voor $890 miljoen aan Bitcoin-fondsen verkocht. Dit creëert verkoopdruk en zet de prijs op korte termijn onder druk.',
+    impact: 'Negatief op korte termijn',
+    colorText: 'text-red-400',
+    bgClass: 'bg-red-500/10 border-red-500/20',
+    impactBg: 'bg-red-500/15 border-red-500/25 text-red-400',
+  },
+  {
+    icon: '→',
+    title: 'Markt is bang — mogelijk koopmoment',
+    technical: 'Fear & Greed Index: 42 (Angst)',
+    plain:
+      'De Fear & Greed-index meet of de markt hebzuchtig of bang is. Op 42 is de markt bang. Historisch gezien koopt men het best als anderen bang zijn — maar timing blijft onzeker.',
+    impact: 'Neutraal — wacht op bevestiging',
+    colorText: 'text-slate-300',
+    bgClass: 'bg-slate-700/30 border-slate-600/40',
+    impactBg: 'bg-slate-700/50 border-slate-600 text-slate-400',
+  },
+] as const;
+
+// ─── Key levels ───────────────────────────────────────────────────────────────
 
 const keyLevels = [
   {
-    label: 'Kritieke steun',
-    value: bitcoinMarket.keyLevels.support1,
-    color: 'text-emerald-400',
-    bg: 'bg-emerald-500/5 border-emerald-500/20',
-    implication: 'Bodem-vorming zone. Bounce kansrijk als STH-realized price houdt.',
-  },
-  {
-    label: 'Diepere steun',
+    label: 'Steun 2',
+    helper: 'Dieper vangnet',
     value: bitcoinMarket.keyLevels.support2,
-    color: 'text-emerald-300',
-    bg: 'bg-emerald-500/5 border-emerald-500/15',
-    implication: 'Mocht de eerste steun falen, dan is dit het volgende strategische koopgebied.',
+    note: 'Als de eerste steun bezwijkt, is dit het volgende strategische koopgebied.',
+    colorText: 'text-emerald-300',
+    colorBg: 'bg-emerald-500/5 border-emerald-500/15',
+    dotColor: 'bg-emerald-300',
   },
   {
-    label: 'Eerste weerstand',
-    value: bitcoinMarket.keyLevels.resistance1,
-    color: 'text-red-400',
-    bg: 'bg-red-500/5 border-red-500/20',
-    implication: 'Doorbreken bevestigt herstel. Verwacht verkoopdruk bij eerste test.',
+    label: 'Steun 1',
+    helper: 'Interessante koopzone',
+    value: bitcoinMarket.keyLevels.support1,
+    note: 'Huidige steunzone. Bounce kansrijk als volume dit bevestigt.',
+    colorText: 'text-emerald-400',
+    colorBg: 'bg-emerald-500/8 border-emerald-500/25',
+    dotColor: 'bg-emerald-400',
   },
-];
+  {
+    label: 'Weerstand 1',
+    helper: 'Eerste horde omhoog',
+    value: bitcoinMarket.keyLevels.resistance1,
+    note: 'Doorbreken hiervan bevestigt herstel richting $103k.',
+    colorText: 'text-red-400',
+    colorBg: 'bg-red-500/8 border-red-500/25',
+    dotColor: 'bg-red-400',
+  },
+  {
+    label: 'Weerstand 2',
+    helper: 'Tweede zone',
+    value: bitcoinMarket.keyLevels.resistance2,
+    note: 'Doel bij sterker herstelscenario. Verwacht aanbod in deze zone.',
+    colorText: 'text-red-300',
+    colorBg: 'bg-red-500/5 border-red-500/15',
+    dotColor: 'bg-red-300',
+  },
+] as const;
+
+// ─── Bitcoin-specific scenarios ───────────────────────────────────────────────
+
+const btcScenarios = [
+  {
+    variant: 'bullish' as const,
+    label: 'Positief scenario',
+    condition: 'Steun $88k–$90k houdt',
+    implication: 'Herstel richting $97k–$103k mogelijk in de komende weken.',
+    probability: '35%',
+    watch: ['Bounce op $88k–$90k met hoog volume', 'ETF-instroom keert positief', 'Fear & Greed stijgt boven 50'],
+    colorBg: 'bg-emerald-500/10 border-emerald-500/20',
+    colorLabel: 'text-emerald-400',
+    probBg: 'bg-emerald-500/15 border-emerald-500/25 text-emerald-400',
+  },
+  {
+    variant: 'bearish' as const,
+    label: 'Negatief scenario',
+    condition: 'Steun $88k bezwijkt',
+    implication: 'Verdere daling naar $82k–$84k zone mogelijk.',
+    probability: '30%',
+    watch: ['Dagelijkse sluit onder $87.000', 'Aanhoudende ETF-uitstroom', 'Fear & Greed daalt onder 25'],
+    colorBg: 'bg-red-500/10 border-red-500/20',
+    colorLabel: 'text-red-400',
+    probBg: 'bg-red-500/15 border-red-500/25 text-red-400',
+  },
+  {
+    variant: 'neutral' as const,
+    label: 'Neutraal scenario',
+    condition: 'Consolidatie zonder richting',
+    implication: 'Koers beweegt zijwaarts tussen $88k en $97k. Geduld vereist.',
+    probability: '35%',
+    watch: ['Bitcoin houdt $88k–$97k range', 'Laag volume', 'Geen grote ETF-bewegingen'],
+    colorBg: 'bg-slate-700/30 border-slate-600/40',
+    colorLabel: 'text-slate-300',
+    probBg: 'bg-slate-700/50 border-slate-600 text-slate-400',
+  },
+] as const;
+
+// ─── On-chain signal plain explanations ──────────────────────────────────────
+
+const signalExplanations: Record<string, string> = {
+  'btc-sig-1':
+    'Mensen die Bitcoin al meer dan 6 maanden bezitten, houden vast. Zolang zij niet verkopen, blijft de marktstructuur gezond.',
+  'btc-sig-2':
+    'Grote beleggers halen geld weg uit Bitcoin-fondsen (ETFs). Dit veroorzaakt extra verkoopdruk op korte termijn.',
+  'btc-sig-3':
+    'Hoe banger de markt, hoe lager dit getal. Historisch zijn angst-niveaus potentiële kooptijden gebleken — maar timing is onzeker.',
+  'btc-sig-4':
+    'Bitcoin versus alle andere cryptomunten. Hoge dominantie betekent: beleggers kiezen Bitcoin boven risicovollere alternatieven.',
+  'btc-sig-5':
+    'De gemiddelde aankoopprijs van recente kopers (~$89.000). Zolang Bitcoin hier vlakbij zit, is er verkoopdruk van mensen die break-even willen sluiten.',
+};
+
+// ─── Page component ───────────────────────────────────────────────────────────
 
 export default function BitcoinPage() {
+  const [tab, setTab] = useState<'today' | 'month' | 'longterm'>('today');
+
   return (
-    <div className="px-4 py-4 sm:px-6 sm:py-6 max-w-7xl space-y-10">
+    <div className="px-4 py-6 sm:px-6 max-w-4xl space-y-8">
 
-      {/* ── 1. Page header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg text-amber-400 font-bold">₿</span>
-            <span className="text-xs text-amber-500 font-semibold uppercase tracking-wider">
-              Bitcoin
-            </span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight">Bitcoin</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Marktintelligentie &amp; Analyse
-          </p>
-        </div>
+      {/* ── 1. HERO DECISION CARD ──────────────────────────────────────────────── */}
+      <div className="bg-[#111827] border border-[#1e2d45] rounded-2xl overflow-hidden">
 
-        {/* Price + change block */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="bg-[#111827] border border-[#1e2d45] rounded-xl px-4 py-3 flex items-center gap-4">
+        {/* Price + recommendation header */}
+        <div className="px-5 pt-5 pb-5 border-b border-[#1e2d45]">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+
+            {/* Left: price block */}
             <div>
-              <p className="text-xs text-slate-500 mb-0.5">Bitcoin prijs</p>
-              <p className="text-xl sm:text-2xl font-bold text-slate-100 font-mono tabular-nums">
-                {formatBtcPrice(bitcoinMarket.currentPrice)}
+              <div className="flex items-center gap-2 mb-2.5">
+                <span className="text-lg text-amber-400 font-bold leading-none">₿</span>
+                <span className="text-xs text-amber-500 font-semibold uppercase tracking-wider">Bitcoin</span>
+              </div>
+              <p className="text-3xl sm:text-4xl font-bold text-slate-100 tabular-nums font-mono leading-none">
+                {fmtUsd(bitcoinMarket.currentPrice)}
               </p>
-            </div>
-            <div className="flex flex-col gap-1 border-l border-[#1e2d45] pl-4">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2.5 mt-2 flex-wrap">
                 <span className="text-xs text-slate-500">24u</span>
                 <ChangeIndicator value={bitcoinMarket.changePercent24h} />
-              </div>
-              <div className="flex items-center gap-1.5">
+                <span className="text-slate-700">·</span>
                 <span className="text-xs text-slate-500">7d</span>
                 <ChangeIndicator value={bitcoinMarket.changePercent7d} />
               </div>
+              <p className="text-xs text-slate-600 mt-2">
+                Koersdata: {UPDATED_LABEL} (15 min vertraging)
+              </p>
+            </div>
+
+            {/* Right: recommendation + badges */}
+            <div className="flex flex-col gap-2 items-start sm:items-end">
+              <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-semibold ${reco.badgeBg}`}>
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${reco.dotColor}`} />
+                {reco.label}
+              </span>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded border text-xs font-medium ${reco.riskBg}`}>
+                Risico: {reco.riskLabel}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-500">Betrouwbaarheid:</span>
+                <span className="text-xs font-bold text-slate-200">{btcSetup.confidenceScore}/10</span>
+              </div>
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-500 font-medium">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Geschikt voor beginners
+              </span>
             </div>
           </div>
-          <DataStatusBadge
-            status={bitcoinMarket.dataStatus}
-            lastUpdated={bitcoinMarket.lastUpdated}
-            showTime={true}
-          />
+
+          {/* Summary */}
+          <p className="text-sm text-slate-300 leading-relaxed mt-4 max-w-2xl">
+            {reco.summary}
+          </p>
         </div>
-      </div>
 
-      {/* ── Guidance banner ───────────────────────────────────────────────────── */}
-      <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3.5 flex items-start gap-3">
-        <span className="text-amber-600 text-base mt-0.5 flex-shrink-0">ℹ</span>
-        <p className="text-sm text-slate-400 leading-relaxed">
-          Op deze pagina vind je een gedetailleerde analyse van Bitcoin: koers, Fear &amp; Greed-index, technische niveaus,
-          actieve signalen en handelskansen. Bitcoin is een volatiel instrument — gebruik altijd een stop-loss.
-        </p>
-      </div>
+        {/* Tab switcher */}
+        <div className="flex border-b border-[#1e2d45]">
+          {(
+            [
+              { key: 'today', label: 'Vandaag' },
+              { key: 'month', label: 'Deze maand' },
+              { key: 'longterm', label: 'Lange termijn' },
+            ] as const
+          ).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`flex-1 px-3 py-3 text-sm font-medium transition-colors border-b-2 ${
+                tab === key
+                  ? 'text-amber-400 border-amber-400'
+                  : 'text-slate-500 border-transparent hover:text-slate-300'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
-      {/* ── 2. BitcoinSignalGrid ────────────────────────────────────────────────── */}
-      <div className="space-y-3">
-        <SectionHeader
-          title="Marktsignalen &amp; Sleutelniveaus"
-          subtitle="On-chain data, sentiment en technische niveaus"
-        />
-        <BitcoinSignalGrid market={bitcoinMarket} />
-      </div>
-
-      {/* ── 3. Drie perspectieven ───────────────────────────────────────────────── */}
-      <div className="space-y-4">
-        <SectionHeader
-          title="Bitcoin advies — drie perspectieven"
-          subtitle="Intraday, maandelijks en structureel — elk met eigen tijdshorizon"
-        />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-          {/* Intraday — Nu */}
-          <div className="bg-[#111827] border border-[#1e2d45] rounded-xl overflow-hidden flex flex-col">
-            <div className="px-4 pt-4 pb-3 border-b border-[#1e2d45]">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="inline-flex items-center text-xs px-2 py-0.5 rounded bg-blue-500/15 border border-blue-500/25 text-blue-400 font-semibold">
-                  Nu — Intraday
-                </span>
-              </div>
-              <h3 className="text-sm font-bold text-slate-100">Bitcoin trade setup</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Steunzone retest — korte termijn</p>
-            </div>
-            <div className="px-4 py-4 flex-1 space-y-3">
-              {/* Setup details */}
-              <div className="grid grid-cols-2 gap-2">
+        {/* Tab content */}
+        <div className="px-5 py-5">
+          {/* ── Vandaag ── */}
+          {tab === 'today' && (
+            <div className="space-y-4">
+              <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Wat doe je vandaag?</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {[
-                  { label: 'Entry zone', value: btcSetup.entryZone, color: 'text-slate-200' },
-                  { label: 'Stop-loss', value: btcSetup.stopLoss, color: 'text-red-400' },
-                  { label: 'Target 1', value: btcSetup.target1, color: 'text-emerald-400' },
-                  { label: 'R/R ratio', value: `${btcSetup.riskReward}x`, color: 'text-amber-400' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="bg-[#0f1623] border border-[#1e2d45] rounded-lg px-2.5 py-2">
-                    <p className="text-xs text-slate-500 mb-0.5">{label}</p>
-                    <p className={`text-sm font-semibold font-mono ${color}`}>{value}</p>
+                  {
+                    label: 'Koopzone',
+                    value: btcSetup.entryZone,
+                    color: 'text-slate-200',
+                    bg: 'bg-[#0f1623] border-[#1e2d45]',
+                    note: 'Instapprijs',
+                  },
+                  {
+                    label: 'Stop-loss',
+                    value: btcSetup.stopLoss,
+                    color: 'text-red-400',
+                    bg: 'bg-red-500/5 border-red-500/20',
+                    note: 'Maximaal verlies',
+                  },
+                  {
+                    label: 'Eerste doel',
+                    value: btcSetup.target1,
+                    color: 'text-emerald-400',
+                    bg: 'bg-emerald-500/5 border-emerald-500/20',
+                    note: 'Winstdoelstelling',
+                  },
+                  {
+                    label: 'R/R verhouding',
+                    value: `${btcSetup.riskReward}×`,
+                    color: 'text-amber-400',
+                    bg: 'bg-amber-500/5 border-amber-500/20',
+                    note: 'Risico vs. opbrengst',
+                  },
+                ].map(({ label, value, color, bg, note }) => (
+                  <div key={label} className={`rounded-xl border px-3 py-3 flex flex-col gap-1 ${bg}`}>
+                    <p className="text-xs text-slate-500">{label}</p>
+                    <p className={`text-sm font-bold font-mono leading-tight ${color}`}>{value}</p>
+                    <p className="text-xs text-slate-600">{note}</p>
                   </div>
                 ))}
               </div>
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1.5">Tradeability</p>
-                <TradeabilityBadge state={btcSetup.tradeabilityState} />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1.5">Katalysator</p>
-                <p className="text-xs text-slate-300 leading-relaxed">{btcSetup.catalyst}</p>
+              <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3">
+                <p className="text-xs text-amber-500 font-medium mb-1">Advies voor nu</p>
+                <p className="text-sm text-slate-300 leading-relaxed">{reco.actionToday}</p>
               </div>
               {btcSetup.notes && (
-                <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
-                  <p className="text-xs text-slate-300 italic leading-relaxed">{btcSetup.notes}</p>
-                </div>
+                <p className="text-xs text-slate-600 italic leading-relaxed">{btcSetup.notes}</p>
               )}
-              <ScoreBar score={btcSetup.confidenceScore} label="Betrouwbaarheid" size="sm" />
             </div>
-          </div>
+          )}
 
-          {/* Maandelijks — Deze maand */}
-          <div className="bg-[#111827] border border-[#1e2d45] rounded-xl overflow-hidden flex flex-col">
-            <div className="px-4 pt-4 pb-3 border-b border-[#1e2d45]">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="inline-flex items-center text-xs px-2 py-0.5 rounded bg-violet-500/15 border border-violet-500/25 text-violet-400 font-semibold">
-                  Deze maand — Maandelijks
-                </span>
-              </div>
-              <h3 className="text-sm font-bold text-slate-100">Maandelijkse allocatie</h3>
-              <p className="text-xs text-slate-400 mt-0.5">{monthlyAdvice.subtitle}</p>
-            </div>
-            <div className="px-4 py-4 flex-1 space-y-3">
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Bitcoin score deze maand</p>
-                <ScoreBar score={btcScore} label="Bitcoin" size="sm" />
-              </div>
-              <div className="bg-[#0f1623] border border-[#1e2d45] rounded-lg px-3 py-2.5">
-                <p className="text-xs text-slate-500 mb-1">Maandcontext</p>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Bitcoin tijdelijk minder aantrekkelijk door ETF-uitstroom, maar fundamentals op lange termijn intact. Maandelijkse allocatie beperken tot max 10%.
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1.5">Allocatie-advies</p>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-amber-500 rounded-full"
-                      style={{ width: `${monthlyCategoryComparison.sampleAllocation.bitcoin * 4}%` }}
-                    />
-                  </div>
-                  <span className="text-sm font-bold text-amber-400 tabular-nums">
-                    {monthlyCategoryComparison.sampleAllocation.bitcoin}%
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">van totale maandelijkse inleg</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1.5">Vermijden deze maand</p>
-                <ul className="space-y-1">
-                  {monthlyCategoryComparison.avoidThisMonth
-                    .filter((a) => a.toLowerCase().includes('crypto') || a.toLowerCase().includes('altcoin'))
-                    .map((item, i) => (
-                      <li key={i} className="flex items-start gap-1.5 text-xs text-slate-400">
-                        <span className="mt-1 w-1 h-1 rounded-full bg-red-500 flex-shrink-0" />
-                        {item}
-                      </li>
-                    ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Lange termijn — Structureel */}
-          <div className="bg-[#111827] border border-amber-500/15 rounded-xl overflow-hidden flex flex-col">
-            <div className="px-4 pt-4 pb-3 border-b border-amber-500/15">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="inline-flex items-center text-xs px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/25 text-amber-400 font-semibold">
-                  Structureel — Lange termijn
-                </span>
-              </div>
-              <h3 className="text-sm font-bold text-slate-100">Fundamenteel narratief</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Halving-cyclus &amp; institutioneel momentum</p>
-            </div>
-            <div className="px-4 py-4 flex-1 space-y-4">
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Bitcoin bevindt zich structureel in een bull-markt post-halving cyclus (april 2024). Historisch bereiken markten een piek 12–18 maanden na de halving, wat richting eind 2025 wijst. Institutionele instroom via spot-ETFs heeft het marktlandschap fundamenteel veranderd.
+          {/* ── Deze maand ── */}
+          {tab === 'month' && (
+            <div className="space-y-4">
+              <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">
+                Wat doe je deze maand ({CURRENT_MONTH})?
               </p>
+
+              {/* Allocation bar */}
               <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">LTH-signalen</p>
-                <ul className="space-y-2">
-                  {[
-                    'LTH-houders (>6 mnd) verkopen structureel niet — 74,2% van supply',
-                    'Elke halving heeft historisch geleid tot hogere all-time highs',
-                    'ETF-adoptie verlaagt effectief beschikbare supply op exchanges',
-                  ].map((item, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs text-slate-400">
-                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-amber-500/60 flex-shrink-0" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs text-slate-500">Aanbevolen allocatie van je maandelijkse inleg</span>
+                  <span className="text-xl font-bold text-amber-400 tabular-nums">{btcAllocationPct}%</span>
+                </div>
+                <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-amber-500 rounded-full"
+                    style={{ width: `${Math.min(btcAllocationPct * 4, 100)}%` }}
+                  />
+                </div>
               </div>
-              <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2.5">
-                <p className="text-xs text-amber-400 font-medium mb-1">Halving context</p>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Halving april 2024 heeft de nieuwe bitcoin-uitgifte gehalveerd. Bij gelijkblijvende of stijgende vraag heeft dit historisch geleid tot hogere prijzen op een horizon van 12–24 maanden.
-                </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-[#0f1623] border border-[#1e2d45] rounded-xl px-4 py-3.5">
+                  <p className="text-xs text-slate-500 mb-2">Bitcoin score deze maand</p>
+                  <ScoreBar score={btcScore} label="Score" size="sm" />
+                </div>
+                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3.5">
+                  <p className="text-xs text-amber-500 font-medium mb-1">Maandadvies</p>
+                  <p className="text-xs text-slate-300 leading-relaxed">{reco.actionMonth}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1.5">Structureel risico</p>
+
+              <div className="bg-[#0f1623] border border-[#1e2d45] rounded-xl px-4 py-3.5">
+                <p className="text-xs text-slate-500 mb-1.5">Wat is DCA?</p>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Regulatoire ingrepen, macro-recessie en verlies van institutioneel vertrouwen zijn de drie voornaamste risico&apos;s op lange termijn. Geen van deze materialiseert momenteel.
+                  DCA staat voor <span className="text-slate-300 font-medium">Dollar-Cost Averaging</span> — je koopt elke week of maand een vast bedrag, ongeacht de prijs. Zo koop je soms duur en soms goedkoop, maar vermijd je het risico van één slecht gekozen moment.
                 </p>
               </div>
             </div>
-          </div>
+          )}
 
+          {/* ── Lange termijn ── */}
+          {tab === 'longterm' && (
+            <div className="space-y-4">
+              <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">
+                Structurele kijk op lange termijn
+              </p>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                Bitcoin bevindt zich in een bull-markt na de halvering van april 2024. Historisch bereiken markten een piek 12–18 maanden na een halvering. Institutionele instroom via spot-ETFs heeft de markt structureel veranderd.
+              </p>
+
+              <div className="space-y-2.5">
+                {[
+                  {
+                    icon: '↑',
+                    text: '75,8% van alle Bitcoin wordt vastgehouden door langetermijnbeleggers die niet verkopen',
+                    color: 'text-emerald-400',
+                  },
+                  {
+                    icon: '↑',
+                    text: 'Elke halvering heeft historisch geleid tot hogere koersen op een horizon van 12–24 maanden',
+                    color: 'text-emerald-400',
+                  },
+                  {
+                    icon: '→',
+                    text: 'ETF-adoptie door grote instituten verlaagt het beschikbare aanbod op beurzen — structureel positief',
+                    color: 'text-slate-400',
+                  },
+                  {
+                    icon: '↓',
+                    text: "Risico's: regulering, macro-recessie, verlies van institutioneel vertrouwen — geen hiervan is momenteel acuut",
+                    color: 'text-orange-400',
+                  },
+                ].map(({ icon, text, color }, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <span className={`text-sm font-bold flex-shrink-0 mt-0.5 w-4 text-center ${color}`}>{icon}</span>
+                    <p className="text-xs text-slate-400 leading-relaxed">{text}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3.5">
+                <p className="text-xs text-amber-500 font-medium mb-1">Halvering — wat betekent dat?</p>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Elke ~4 jaar wordt de hoeveelheid nieuwe Bitcoin die miners ontvangen gehalveerd. Minder aanbod bij gelijkblijvende of stijgende vraag leidt historisch tot hogere prijzen. De laatste halvering was april 2024.
+                </p>
+              </div>
+
+              <p className="text-xs text-slate-500 leading-relaxed">{reco.actionLongTerm}</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ── 4. Bitcoin scenario's + sleutelniveaus ─────────────────────────────── */}
-      <div className="space-y-4">
-        <SectionHeader
-          title="Bitcoin scenario&apos;s"
-          subtitle="Drie marktuitkomsten voor de komende sessie(s)"
-        />
-        <ScenarioPanel scenarios={dailyAdvice.scenarios} />
-
-        {/* Key levels with implications */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-          {keyLevels.map(({ label, value, color, bg, implication }) => (
-            <div key={label} className={`rounded-xl border px-4 py-3 flex flex-col gap-2 ${bg}`}>
-              <p className="text-xs text-slate-500">{label}</p>
-              <p className={`text-base font-bold font-mono ${color}`}>{value}</p>
-              <p className="text-xs text-slate-400 leading-snug">{implication}</p>
+      {/* ── 2. WAAROM DIT ADVIES? ──────────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-100">Waarom dit advies?</h2>
+          <p className="text-xs text-slate-500 mt-0.5">3 signalen die deze aanbeveling onderbouwen</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {whySignals.map((sig) => (
+            <div key={sig.title} className={`rounded-xl border px-4 py-4 flex flex-col gap-3 ${sig.bgClass}`}>
+              <div className="flex items-center gap-2.5">
+                <span className={`text-base font-bold leading-none ${sig.colorText}`}>{sig.icon}</span>
+                <p className="text-sm font-semibold text-slate-200 leading-snug">{sig.title}</p>
+              </div>
+              <p className="text-xs text-slate-500 font-mono leading-tight">{sig.technical}</p>
+              <p className="text-xs text-slate-400 leading-relaxed flex-1">{sig.plain}</p>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-medium w-fit ${sig.impactBg}`}>
+                {sig.impact}
+              </span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── 5. Bitcoin nieuwsitems ──────────────────────────────────────────────── */}
-      <div className="space-y-4">
-        <SectionHeader
-          title="Bitcoin nieuwsitems"
-          subtitle={`${btcNewsItems.length} items die direct betrekking hebben op Bitcoin`}
-          badge={
-            <span className="inline-flex items-center text-xs px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/25 text-amber-400 font-medium">
-              {btcNewsItems.length} items
+      {/* ── 3. SLEUTELNIVEAUS ──────────────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h2 className="text-base font-semibold text-slate-100">Sleutelniveaus</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Op welke prijzen moet je letten?</p>
+          </div>
+          <div className="flex items-center gap-2 bg-[#0f1623] border border-[#1e2d45] rounded-lg px-3 py-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+            <span className="text-xs text-slate-500">Huidige koers:</span>
+            <span className="text-sm font-bold text-amber-400 font-mono tabular-nums">
+              {fmtUsd(bitcoinMarket.currentPrice)}
             </span>
-          }
-        />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {keyLevels.map((lvl) => (
+            <div key={lvl.label} className={`rounded-xl border px-4 py-3.5 flex flex-col gap-2 ${lvl.colorBg}`}>
+              <div className="flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${lvl.dotColor}`} />
+                <p className="text-xs text-slate-500">{lvl.label}</p>
+              </div>
+              <p className={`text-sm font-bold font-mono leading-tight ${lvl.colorText}`}>{lvl.value}</p>
+              <p className="text-xs font-medium text-slate-300">{lvl.helper}</p>
+              <p className="text-xs text-slate-500 leading-snug">{lvl.note}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-[#111827] border border-[#1e2d45] rounded-xl px-4 py-3 flex items-start gap-3">
+          <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 mt-1" />
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Huidige koers{' '}
+            <span className="text-amber-400 font-bold font-mono">{fmtUsd(bitcoinMarket.currentPrice)}</span>{' '}
+            zit <span className="text-slate-200 font-medium">boven steun 1</span> maar{' '}
+            <span className="text-slate-200 font-medium">onder weerstand 1</span> — een neutrale positie
+            met ruimte naar boven én naar beneden. De eerste steunzone ($88k–$90k) is het kritieke level om in de gaten te houden.
+          </p>
+        </div>
+      </div>
+
+      {/* ── 4. SCENARIO'S ──────────────────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-100">Mogelijke scenario&apos;s</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Drie mogelijke uitkomsten voor de komende periode</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {btcScenarios.map((sc) => (
+            <div key={sc.variant} className={`rounded-xl border px-4 py-4 flex flex-col gap-3 ${sc.colorBg}`}>
+              <div className="flex items-start justify-between gap-2">
+                <p className={`text-sm font-semibold ${sc.colorLabel}`}>{sc.label}</p>
+                <span className={`flex-shrink-0 inline-flex items-center text-xs px-2 py-0.5 rounded border font-medium ${sc.probBg}`}>
+                  {sc.probability}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 font-medium">{sc.condition}</p>
+              <p className="text-xs text-slate-400 leading-relaxed">{sc.implication}</p>
+              <div>
+                <p className="text-xs text-slate-600 uppercase tracking-wide mb-1.5">Let op</p>
+                <div className="flex flex-col gap-1">
+                  {sc.watch.map((w, i) => (
+                    <p key={i} className="text-xs text-slate-500 leading-snug flex items-start gap-1.5">
+                      <span className="mt-1 w-1 h-1 rounded-full bg-slate-600 flex-shrink-0" />
+                      {w}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── 5. BITCOIN NIEUWS ──────────────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-100">Bitcoin nieuws</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {btcNewsItems.length} recente items met directe impact op Bitcoin
+          </p>
+        </div>
         <NewsList
           items={btcNewsItems}
           defaultFilter="bitcoin"
           showFilterBar={false}
+          title=""
         />
       </div>
 
-      {/* ── 6. On-chain signaleninterpretatie ──────────────────────────────────── */}
-      <div className="space-y-4">
-        <SectionHeader
-          title="On-chain signalen — interpretatie"
-          subtitle="Wat betekenen de signalen in combinatie?"
-        />
-        <div className="bg-[#111827] border border-[#1e2d45] rounded-xl px-5 py-5 space-y-4">
-          <p className="text-sm text-slate-200 leading-relaxed">
-            <span className="text-amber-400 font-semibold">Interpretatie van de signalen:</span>{' '}
-            LTH-stabiliteit is het sterkste fundamentele signaal — 74,2% van alle Bitcoin wordt vastgehouden door langetermijn-investeerders die niet van plan zijn te verkopen. Dit wijst op een gezonde marktstructuur.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-3 py-3">
-              <p className="text-xs text-emerald-400 font-semibold uppercase tracking-wide mb-1.5">
-                Sterkste fundamentele signaal
-              </p>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                LTH-stabiliteit (74,2%) suggereert dat de huidige correctie door zwakke handen gedreven wordt, niet door structurele exit. Historisch volgt na dergelijke fasen een hervatting van de opwaartse trend.
-              </p>
-            </div>
-            <div className="bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-3">
-              <p className="text-xs text-red-400 font-semibold uppercase tracking-wide mb-1.5">
-                Grootste korte-termijn risico
-              </p>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                ETF-uitstroom van -$1,2 miljard in 7 dagen is het grootste directe risico. Institutionele uitstroom creëert verkoopdruk die moeilijk te absorberen is door retail. Dagelijkse stroomdata is cruciaal om te monitoren.
-              </p>
-            </div>
-            <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg px-3 py-3">
-              <p className="text-xs text-orange-400 font-semibold uppercase tracking-wide mb-1.5">
-                Sentiment als contra-indicator
-              </p>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Fear &amp; Greed van 38 (Angst) is historisch gezien een fase waarin langetermijn-kopers actief worden. Extreme angst is statistisch een betere kooptiming dan extreme hebzucht — maar timing blijft onzeker.
-              </p>
-            </div>
+      {/* ── 6. VERDIEPING — ON-CHAIN SIGNALEN ─────────────────────────────────── */}
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-100">Verdieping — alle signalen</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Voor wie verder wil kijken dan het basisadvies</p>
+        </div>
+        <div className="bg-[#111827] border border-[#1e2d45] rounded-xl overflow-hidden">
+          <div className="divide-y divide-[#1e2d45]">
+            {bitcoinMarket.signals.map((sig) => {
+              const sentColor =
+                sig.sentiment === 'bullish'
+                  ? 'text-emerald-400 bg-emerald-500/15'
+                  : sig.sentiment === 'bearish'
+                  ? 'text-red-400 bg-red-500/15'
+                  : 'text-slate-400 bg-slate-700/50';
+              const sentLabel =
+                sig.sentiment === 'bullish' ? '↑ Positief' : sig.sentiment === 'bearish' ? '↓ Negatief' : '→ Neutraal';
+              const valueColor =
+                sig.sentiment === 'bullish'
+                  ? 'text-emerald-400'
+                  : sig.sentiment === 'bearish'
+                  ? 'text-red-400'
+                  : 'text-slate-300';
+              const impLabel =
+                sig.importance === 'hoog'
+                  ? 'Hoge impact'
+                  : sig.importance === 'gemiddeld'
+                  ? 'Gemiddelde impact'
+                  : 'Lage impact';
+
+              return (
+                <div key={sig.id} className="px-5 py-4 flex flex-col gap-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <p className="text-sm font-semibold text-slate-200">{sig.label}</p>
+                        <span className="text-xs text-slate-600">·</span>
+                        <span className="text-xs text-slate-500">{impLabel}</span>
+                      </div>
+                      <p className={`text-sm font-bold font-mono ${valueColor}`}>{sig.value}</p>
+                    </div>
+                    <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded font-medium ${sentColor}`}>
+                      {sentLabel}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    {signalExplanations[sig.id] ?? sig.interpretation}
+                  </p>
+                </div>
+              );
+            })}
           </div>
-          <div className="border-t border-[#1e2d45] pt-4">
-            <p className="text-xs text-slate-500 leading-relaxed">
-              <span className="text-slate-400 font-medium">Conclusie:</span> De signalen zijn gemengd — fundamenteel gezond (LTH), maar korte termijn onder druk (ETF-uitstroom, STH-realized price als weerstand). Dit is een typisch patroon voor een correctiefase in een bredere bull-markt cyclus.
+
+          <div className="px-5 py-4 bg-[#0f1623] border-t border-[#1e2d45]">
+            <p className="text-xs text-slate-500 font-medium mb-1">Conclusie</p>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              De signalen zijn gemengd: de structurele fundamentals zijn gezond (lange termijn houders verkopen
+              niet), maar de korte termijn staat onder druk door institutionele uitstroom. Dit is een typisch
+              patroon in een correctiefase binnen een bredere opwaartse trend.
             </p>
           </div>
         </div>
       </div>
 
-      {/* ── 7. Disclaimer ──────────────────────────────────────────────────────── */}
-      <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl px-5 py-4">
-        <div className="flex items-start gap-3">
-          <svg className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
-          </svg>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            Bitcoin heeft significant hogere volatiliteit dan traditionele assets. Positiegrootte dient hierop afgestemd te zijn. Correcties van 20–40% zijn normaal in bull-markten. Investeer nooit meer dan u zich kunt veroorloven te verliezen.{' '}
-            <span className="text-slate-600">
-              Deze informatie is niet op te vatten als beleggingsadvies.
-            </span>
-          </p>
-        </div>
+      {/* ── 7. DISCLAIMER ──────────────────────────────────────────────────────── */}
+      <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-slate-800/30 border border-slate-700/40">
+        <svg
+          className="w-4 h-4 text-slate-600 flex-shrink-0 mt-0.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+          />
+        </svg>
+        <p className="text-xs text-slate-600 leading-relaxed">
+          Bitcoin kent significante prijsschommelingen. Correcties van 20–40% zijn normaal, ook in opwaartse
+          trends. Investeer alleen geld dat je kunt missen, gebruik altijd een stop-loss, en beschouw dit
+          dashboard als beslissingsondersteuning — niet als financieel advies.
+        </p>
       </div>
 
     </div>

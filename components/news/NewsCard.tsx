@@ -107,7 +107,7 @@ export default function NewsCard({ item, variant }: NewsCardProps) {
             <ScoreBar score={item.relevanceScore} label="Relevantie" size="sm" />
           </div>
           <span className="text-xs text-slate-500 ml-auto">
-            {expanded ? 'Inklappen' : 'Details'}
+            {expanded ? 'Inklappen ↑' : 'Meer detail →'}
           </span>
         </div>
       )}
