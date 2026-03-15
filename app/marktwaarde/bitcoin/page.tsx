@@ -35,14 +35,13 @@ const UPDATED_LABEL =
 
 // ─── Format helper ────────────────────────────────────────────────────────────
 
-function fmtUsd(n: number): string {
-  return (
-    '$' +
-    new Intl.NumberFormat('nl-NL', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(n)
-  );
+function fmtEur(n: number): string {
+  return new Intl.NumberFormat('nl-NL', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(n);
 }
 
 // ─── Recommendation config ────────────────────────────────────────────────────
@@ -56,7 +55,7 @@ const recoConfig = {
     riskBg: 'bg-orange-500/15 border-orange-500/30 text-orange-400',
     summary:
       'Bitcoin bevindt zich in een steunzone, maar er is nog geen duidelijk koopsignaal. Wacht op een bevestiging — een duidelijke omkeringskaarrs of volume-bevestiging — voor je instapt.',
-    actionToday: `Koopzone $89.500–$91.500 is actief. Wacht op een herstel-signaal (reversal-candle + volume) voor je instapt. Stop-loss altijd op $87.200 instellen.`,
+    actionToday: `Koopzone €60.500–€62.000 is actief. Wacht op een herstel-signaal (reversal-candle + volume) voor je instapt. Stop-loss altijd op €58.500 instellen.`,
     actionMonth: `Maximaal ${btcAllocationPct}% van je maandelijkse inleg in Bitcoin. Spreid over meerdere weken (DCA) om instaprisico te verlagen.`,
     actionLongTerm:
       'Structureel positief. De halvering-cyclus is intact. Grote correcties zijn historisch gezien koopkansen voor beleggers met een horizon van 2+ jaar.',
@@ -123,9 +122,9 @@ const whySignals = [
   {
     icon: '↓',
     title: 'Grote fondsen trekken zich terug',
-    technical: 'ETF-uitstroom: −$890 mln in 7 dagen',
+    technical: 'ETF-uitstroom: −€832 mln in 7 dagen',
     plain:
-      'In de afgelopen week hebben grote beleggers voor $890 miljoen aan Bitcoin-fondsen verkocht. Dit creëert verkoopdruk en zet de prijs op korte termijn onder druk.',
+      'In de afgelopen week hebben grote beleggers voor €832 miljoen aan Bitcoin-fondsen verkocht. Dit creëert verkoopdruk en zet de prijs op korte termijn onder druk.',
     impact: 'Negatief op korte termijn',
     colorText: 'text-red-400',
     bgClass: 'bg-red-500/10 border-red-500/20',
@@ -169,7 +168,7 @@ const keyLevels = [
     label: 'Weerstand 1',
     helper: 'Eerste horde omhoog',
     value: bitcoinMarket.keyLevels.resistance1,
-    note: 'Doorbreken hiervan bevestigt herstel richting $103k.',
+    note: 'Doorbreken hiervan bevestigt herstel richting €72k.',
     colorText: 'text-red-400',
     colorBg: 'bg-red-500/8 border-red-500/25',
     dotColor: 'bg-red-400',
@@ -191,10 +190,10 @@ const btcScenarios = [
   {
     variant: 'bullish' as const,
     label: 'Positief scenario',
-    condition: 'Steun $88k–$90k houdt',
-    implication: 'Herstel richting $97k–$103k mogelijk in de komende weken.',
+    condition: 'Steun €60k–€62k houdt',
+    implication: 'Herstel richting €67k–€72k mogelijk in de komende weken.',
     probability: '35%',
-    watch: ['Bounce op $88k–$90k met hoog volume', 'ETF-instroom keert positief', 'Fear & Greed stijgt boven 50'],
+    watch: ['Bounce op €60k–€62k met hoog volume', 'ETF-instroom keert positief', 'Fear & Greed stijgt boven 50'],
     colorBg: 'bg-emerald-500/10 border-emerald-500/20',
     colorLabel: 'text-emerald-400',
     probBg: 'bg-emerald-500/15 border-emerald-500/25 text-emerald-400',
@@ -202,10 +201,10 @@ const btcScenarios = [
   {
     variant: 'bearish' as const,
     label: 'Negatief scenario',
-    condition: 'Steun $88k bezwijkt',
-    implication: 'Verdere daling naar $82k–$84k zone mogelijk.',
+    condition: 'Steun €60k bezwijkt',
+    implication: 'Verdere daling naar €54k–€57k zone mogelijk.',
     probability: '30%',
-    watch: ['Dagelijkse sluit onder $87.000', 'Aanhoudende ETF-uitstroom', 'Fear & Greed daalt onder 25'],
+    watch: ['Dagelijkse sluit onder €58.500', 'Aanhoudende ETF-uitstroom', 'Fear & Greed daalt onder 25'],
     colorBg: 'bg-red-500/10 border-red-500/20',
     colorLabel: 'text-red-400',
     probBg: 'bg-red-500/15 border-red-500/25 text-red-400',
@@ -214,9 +213,9 @@ const btcScenarios = [
     variant: 'neutral' as const,
     label: 'Neutraal scenario',
     condition: 'Consolidatie zonder richting',
-    implication: 'Koers beweegt zijwaarts tussen $88k en $97k. Geduld vereist.',
+    implication: 'Koers beweegt zijwaarts tussen €60k en €67k. Geduld vereist.',
     probability: '35%',
-    watch: ['Bitcoin houdt $88k–$97k range', 'Laag volume', 'Geen grote ETF-bewegingen'],
+    watch: ['Bitcoin houdt €60k–€67k range', 'Laag volume', 'Geen grote ETF-bewegingen'],
     colorBg: 'bg-slate-700/30 border-slate-600/40',
     colorLabel: 'text-slate-300',
     probBg: 'bg-slate-700/50 border-slate-600 text-slate-400',
@@ -235,7 +234,7 @@ const signalExplanations: Record<string, string> = {
   'btc-sig-4':
     'Bitcoin versus alle andere cryptomunten. Hoge dominantie betekent: beleggers kiezen Bitcoin boven risicovollere alternatieven.',
   'btc-sig-5':
-    'De gemiddelde aankoopprijs van recente kopers (~$89.000). Zolang Bitcoin hier vlakbij zit, is er verkoopdruk van mensen die break-even willen sluiten.',
+    'De gemiddelde aankoopprijs van recente kopers (~€61.000). Zolang Bitcoin hier vlakbij zit, is er verkoopdruk van mensen die break-even willen sluiten.',
 };
 
 // ─── Page component ───────────────────────────────────────────────────────────
@@ -260,7 +259,7 @@ export default function BitcoinPage() {
                 <span className="text-xs text-amber-500 font-semibold uppercase tracking-wider">Bitcoin</span>
               </div>
               <p className="text-3xl sm:text-4xl font-bold text-slate-100 tabular-nums font-mono leading-none">
-                {fmtUsd(bitcoinMarket.currentPrice)}
+                {fmtEur(bitcoinMarket.currentPrice)}
               </p>
               <div className="flex items-center gap-2.5 mt-2 flex-wrap">
                 <span className="text-xs text-slate-500">24u</span>
@@ -507,7 +506,7 @@ export default function BitcoinPage() {
             <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
             <span className="text-xs text-slate-500">Huidige koers:</span>
             <span className="text-sm font-bold text-amber-400 font-mono tabular-nums">
-              {fmtUsd(bitcoinMarket.currentPrice)}
+              {fmtEur(bitcoinMarket.currentPrice)}
             </span>
           </div>
         </div>
@@ -530,10 +529,10 @@ export default function BitcoinPage() {
           <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 mt-1" />
           <p className="text-xs text-slate-400 leading-relaxed">
             Huidige koers{' '}
-            <span className="text-amber-400 font-bold font-mono">{fmtUsd(bitcoinMarket.currentPrice)}</span>{' '}
+            <span className="text-amber-400 font-bold font-mono">{fmtEur(bitcoinMarket.currentPrice)}</span>{' '}
             zit <span className="text-slate-200 font-medium">boven steun 1</span> maar{' '}
             <span className="text-slate-200 font-medium">onder weerstand 1</span> — een neutrale positie
-            met ruimte naar boven én naar beneden. De eerste steunzone ($88k–$90k) is het kritieke level om in de gaten te houden.
+            met ruimte naar boven én naar beneden. De eerste steunzone (€60k–€62k) is het kritieke level om in de gaten te houden.
           </p>
         </div>
       </div>

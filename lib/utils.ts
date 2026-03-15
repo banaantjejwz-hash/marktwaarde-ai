@@ -168,6 +168,13 @@ export function getMockRelativeTimeShort(
 }
 
 export function formatPrice(value: number, currency = 'EUR'): string {
+  // Index values (S&P 500, Nasdaq, DAX etc.) are pure point values — no currency symbol
+  if (currency === 'POINTS') {
+    return new Intl.NumberFormat('nl-NL', {
+      minimumFractionDigits: value >= 1000 ? 0 : 2,
+      maximumFractionDigits: value >= 1000 ? 0 : 2,
+    }).format(value) + ' pts';
+  }
   const fractionDigits = value > 1000 ? 0 : 2;
   return new Intl.NumberFormat('nl-NL', {
     style: 'currency',

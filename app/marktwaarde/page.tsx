@@ -9,11 +9,20 @@ import {
   relevantNewsItems,
 } from '@/lib/mockData';
 import { formatPrice, formatChangePercent } from '@/lib/utils';
+import { useLivePrices } from '@/hooks/useLivePrices';
 import DataStatusBadge from '@/components/common/DataStatusBadge';
 import FreshnessLabel from '@/components/common/FreshnessLabel';
 import SentimentBadge from '@/components/common/SentimentBadge';
 import ChangeIndicator from '@/components/common/ChangeIndicator';
 import NewsList from '@/components/news/NewsList';
+
+// Map indexPrices ticker → Yahoo Finance symbol for live overlay
+const TICKER_TO_SYMBOL: Record<string, string> = {
+  SPX: '^GSPC',
+  NDX: '^NDX',
+  DAX: '^GDAXI',
+  BTC: 'BTC-EUR',
+};
 
 // ── Regime colour helper ───────────────────────────────────────────────────────
 
@@ -59,6 +68,7 @@ function getFearGreedColor(value: number) {
 }
 
 export default function OverzichtPage() {
+  const { prices, loading: liveLoading } = useLivePrices();
   const regime = marketSummary.regime;
   const regimeStyle = getRegimeStyle(regime);
   const fearGreedColor = getFearGreedColor(bitcoinMarket.fearGreedIndex);
@@ -182,31 +192,52 @@ export default function OverzichtPage() {
 
       {/* ── 4. Index snapshot ──────────────────────────────────────────────────── */}
       <div>
-        <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-3">
-          Index snapshot
-        </p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Index snapshot</p>
+          {!liveLoading && Object.keys(prices).length > 0 && (
+            <span className="flex items-center gap-1.5 text-[10px] text-emerald-500 font-medium">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+              </span>
+              Live koersen
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {indexPrices.map((asset) => (
-            <div
-              key={asset.ticker}
-              className="bg-[#111827] border border-[#1e2d45] rounded-xl px-4 py-3 flex flex-col gap-1"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-bold text-slate-300 font-mono">{asset.ticker}</span>
-                <DataStatusBadge status={asset.dataStatus} lastUpdated={asset.lastUpdated} />
+          {indexPrices.map((asset) => {
+            const symbol = TICKER_TO_SYMBOL[asset.ticker];
+            const live = symbol ? prices[symbol] : undefined;
+            const price = live ? live.price : asset.price;
+            const changePercent = live ? live.changePercent : asset.changePercent;
+            const changeAbsolute = live ? live.changeAbsolute : asset.changeAbsolute;
+            const currency = live ? live.currency : asset.currency;
+            const isLive = !!live;
+            return (
+              <div
+                key={asset.ticker}
+                className="bg-[#111827] border border-[#1e2d45] rounded-xl px-4 py-3 flex flex-col gap-1"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-slate-300 font-mono">{asset.ticker}</span>
+                  <DataStatusBadge
+                    status={isLive ? 'live' : asset.dataStatus}
+                    lastUpdated={live ? live.lastUpdated : asset.lastUpdated}
+                  />
+                </div>
+                <p className="text-xs text-slate-500">{asset.name}</p>
+                <p className="text-lg font-bold text-slate-100 tabular-nums font-mono mt-1">
+                  {formatPrice(price, currency)}
+                </p>
+                <ChangeIndicator
+                  value={changePercent}
+                  showAbsolute={true}
+                  absoluteValue={changeAbsolute}
+                  currency={currency}
+                />
               </div>
-              <p className="text-xs text-slate-500">{asset.name}</p>
-              <p className="text-lg font-bold text-slate-100 tabular-nums font-mono mt-1">
-                {formatPrice(asset.price, asset.currency)}
-              </p>
-              <ChangeIndicator
-                value={asset.changePercent}
-                showAbsolute={true}
-                absoluteValue={asset.changeAbsolute}
-                currency={asset.currency}
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -235,11 +266,11 @@ export default function OverzichtPage() {
             <div className="px-5 py-4 flex flex-col gap-1">
               <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Koers</p>
               <p className="text-xl font-bold text-amber-400 tabular-nums font-mono">
-                {formatPrice(bitcoinMarket.currentPrice, 'EUR')}
+                {formatPrice(prices['BTC-EUR']?.price ?? bitcoinMarket.currentPrice, 'EUR')}
               </p>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs text-slate-500">24u:</span>
-                <ChangeIndicator value={bitcoinMarket.changePercent24h} />
+                <ChangeIndicator value={prices['BTC-EUR']?.changePercent ?? bitcoinMarket.changePercent24h} />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-500">7d:</span>
