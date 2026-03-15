@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { socialsData } from '@/lib/mockData';
+import { socialsData, MOCK_REFERENCE_NOW } from '@/lib/mockData';
 import type { SocialPost, SocialCategory, TrendingTopic } from '@/lib/types';
-import { MOCK_REFERENCE_NOW } from '@/lib/mockData';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -12,98 +11,132 @@ function getMockRelativeTime(timestamp: string): string {
   const ts = new Date(timestamp).getTime();
   const diffMs = ref - ts;
   const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 60) return `${diffMin}m geleden`;
+  if (diffMin < 60) return `${diffMin}m`;
   const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `${diffH}u geleden`;
-  return `${Math.floor(diffH / 24)}d geleden`;
+  if (diffH < 24) return `${diffH}u`;
+  return `${Math.floor(diffH / 24)}d`;
 }
 
 type Filter = 'alles' | SocialCategory | 'bullish' | 'bearish';
 
-const filterLabels: { key: Filter; label: string }[] = [
+const filters: { key: Filter; label: string }[] = [
   { key: 'alles', label: 'Alles' },
+  { key: 'macro', label: 'Macro' },
   { key: 'aandelen', label: 'Aandelen' },
   { key: 'etfs', label: 'ETFs' },
   { key: 'crypto', label: 'Crypto' },
-  { key: 'macro', label: 'Macro' },
-  { key: 'bullish', label: 'Bullish' },
-  { key: 'bearish', label: 'Bearish' },
+  { key: 'bullish', label: '▲ Bullish' },
+  { key: 'bearish', label: '▼ Bearish' },
 ];
 
-const sourceConfig: Record<string, { label: string; color: string }> = {
-  twitter: { label: 'X / Twitter', color: 'text-slate-400 bg-slate-800 border-slate-700' },
-  linkedin: { label: 'LinkedIn', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
-  substack: { label: 'Substack', color: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
-  youtube: { label: 'YouTube', color: 'text-red-400 bg-red-500/10 border-red-500/20' },
+// ─── Source icons ─────────────────────────────────────────────────────────────
+
+function SourceIcon({ source }: { source: string }) {
+  if (source === 'twitter') return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-slate-400">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+  if (source === 'linkedin') return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-blue-400">
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+    </svg>
+  );
+  if (source === 'substack') return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-orange-400">
+      <path d="M22.539 8.242H1.46V5.406h21.08v2.836zM1.46 10.812V24L12 18.11 22.54 24V10.812H1.46zM22.54 0H1.46v2.836h21.08V0z"/>
+    </svg>
+  );
+  return null;
+}
+
+// ─── Sentiment stripe ─────────────────────────────────────────────────────────
+
+const sentimentStripe = {
+  bullish: 'border-l-emerald-500',
+  bearish: 'border-l-red-500',
+  neutraal: 'border-l-slate-600',
 };
 
-const sentimentConfig = {
-  bullish: { label: 'Bullish', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25' },
-  bearish: { label: 'Bearish', color: 'text-red-400 bg-red-500/10 border-red-500/25' },
-  neutraal: { label: 'Neutraal', color: 'text-slate-400 bg-slate-700/40 border-slate-600' },
+const sentimentBadge = {
+  bullish: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+  bearish: 'text-red-400 bg-red-500/10 border-red-500/30',
+  neutraal: 'text-slate-400 bg-slate-700/40 border-slate-600',
 };
 
-const importanceConfig = {
-  hoog: { label: 'Belangrijk', color: 'text-blue-400 bg-blue-500/15 border-blue-500/25' },
-  gemiddeld: { label: 'Relevant', color: 'text-slate-400 bg-slate-700/40 border-slate-600' },
-  laag: { label: 'Achtergrond', color: 'text-slate-500 bg-slate-800 border-slate-700' },
+const sentimentLabel = { bullish: 'Bullish', bearish: 'Bearish', neutraal: 'Neutraal' };
+
+const importanceBadge = {
+  hoog: { style: 'text-blue-300 bg-blue-500/15 border-blue-500/30', label: '🔥 Belangrijk' },
+  gemiddeld: { style: 'text-slate-400 bg-slate-700/30 border-slate-600/50', label: 'Relevant' },
+  laag: { style: 'text-slate-500 bg-slate-800/50 border-slate-700/50', label: 'Achtergrond' },
 };
 
 // ─── Post Card ────────────────────────────────────────────────────────────────
 
 function PostCard({ post }: { post: SocialPost }) {
   const [expanded, setExpanded] = useState(false);
-  const src = sourceConfig[post.source];
-  const sent = sentimentConfig[post.sentiment];
-  const imp = importanceConfig[post.importance];
   const timeLabel = getMockRelativeTime(post.timestamp);
+  const stripe = sentimentStripe[post.sentiment];
+  const sbadge = sentimentBadge[post.sentiment];
+  const slabel = sentimentLabel[post.sentiment];
+  const imp = importanceBadge[post.importance];
 
   return (
-    <div className="bg-[#111827] border border-[#1e2d45] rounded-xl overflow-hidden hover:border-[#2a3f60] transition-colors duration-150">
+    <article
+      className={`group relative bg-[#0f1623] border border-[#1e2d45] border-l-2 ${stripe} rounded-xl overflow-hidden transition-all duration-200 hover:border-[#2d4a6e] hover:shadow-lg hover:shadow-black/30`}
+    >
       {/* Header */}
-      <div className="px-4 pt-4 pb-3">
-        <div className="flex items-start gap-3">
-          {/* Avatar */}
-          <div
-            className={`flex-shrink-0 w-9 h-9 rounded-full border flex items-center justify-center text-xs font-bold ${post.author.avatarColor}`}
-          >
-            {post.author.initials}
-          </div>
+      <div className="px-4 pt-4 pb-3 flex items-start gap-3">
+        {/* Avatar */}
+        <div
+          className={`flex-shrink-0 w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-bold leading-none ${post.author.avatarColor}`}
+        >
+          {post.author.initials}
+        </div>
 
-          {/* Author + meta */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-sm font-semibold text-slate-100">{post.author.name}</span>
-              {post.author.verified && (
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" className="text-blue-400 flex-shrink-0">
-                  <circle cx="6.5" cy="6.5" r="6" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="0.8" />
-                  <path d="M4 6.5L6 8.5L9.5 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-semibold text-slate-100 text-sm">{post.author.name}</span>
+            {post.author.verified && (
+              <span title="Geverifieerd" className="inline-flex">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-blue-400">
+                  <circle cx="7" cy="7" r="6.5" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="0.75"/>
+                  <path d="M4.5 7L6.5 9L9.5 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-              )}
-              <span className="text-xs text-slate-500">{post.author.handle}</span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5 truncate">{post.author.role}</p>
+              </span>
+            )}
+            <span className="text-xs text-slate-500">{post.author.handle}</span>
           </div>
+          <p className="text-xs text-slate-500 truncate">{post.author.role}</p>
+        </div>
 
-          {/* Source badge */}
-          <span className={`flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border ${src.color}`}>
-            {src.label}
-          </span>
+        {/* Top-right meta */}
+        <div className="flex-shrink-0 flex flex-col items-end gap-1">
+          <div className="flex items-center gap-1 text-slate-500">
+            <SourceIcon source={post.source} />
+            <span className="text-[10px]">{timeLabel}</span>
+          </div>
+          {post.importance === 'hoog' && (
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${imp.style}`}>
+              {imp.label}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Content */}
+      {/* Quote content */}
       <div className="px-4 pb-3">
-        <p className="text-sm text-slate-300 leading-relaxed">{post.content}</p>
+        <p className="text-[15px] text-slate-200 leading-relaxed">{post.content}</p>
       </div>
 
-      {/* Ticker tags */}
+      {/* Ticker chips */}
       {post.tickers.length > 0 && (
         <div className="px-4 pb-3 flex flex-wrap gap-1.5">
           {post.tickers.map((t) => (
             <span
               key={t}
-              className="inline-flex text-xs font-mono font-medium px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300"
+              className="inline-flex items-center text-xs font-mono font-medium px-2 py-0.5 rounded-md bg-slate-800/80 border border-slate-700/80 text-slate-300 hover:border-slate-500 transition-colors"
             >
               ${t}
             </span>
@@ -111,96 +144,139 @@ function PostCard({ post }: { post: SocialPost }) {
         </div>
       )}
 
-      {/* Badges row */}
+      {/* Badges + engagement row */}
       <div className="px-4 pb-3 flex items-center gap-2 flex-wrap">
-        <span className={`inline-flex text-xs px-1.5 py-0.5 rounded border font-medium ${sent.color}`}>
-          {sent.label}
+        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${sbadge}`}>
+          {slabel}
         </span>
-        <span className={`inline-flex text-xs px-1.5 py-0.5 rounded border font-medium ${imp.color}`}>
-          {imp.label}
-        </span>
-        <span className="text-xs text-slate-600 ml-auto">{timeLabel}</span>
+        {post.importance !== 'hoog' && (
+          <span className={`text-xs px-2 py-0.5 rounded-full border ${imp.style}`}>
+            {imp.label}
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-3 text-slate-600">
+          <span className="flex items-center gap-1 text-xs">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+              <path d="M8 14S2 10 2 5.5A3.5 3.5 0 018 3.5 3.5 3.5 0 0114 5.5C14 10 8 14 8 14z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+            </svg>
+            {post.likes >= 1000 ? `${(post.likes / 1000).toFixed(1)}K` : post.likes}
+          </span>
+          <span className="flex items-center gap-1 text-xs">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+              <path d="M3 5l4-3.5L11 5M7 1.5V10M5 11.5h6M8 10l3 3.5-3 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            {post.reposts >= 1000 ? `${(post.reposts / 1000).toFixed(1)}K` : post.reposts}
+          </span>
+        </div>
       </div>
 
-      {/* Why it matters — expandable */}
+      {/* Expandable: Why it matters */}
       <div className="border-t border-[#1e2d45]">
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-white/[0.01] transition-colors"
+          className="w-full flex items-center justify-between px-4 py-2.5 text-left group/btn hover:bg-white/[0.02] transition-colors"
           aria-expanded={expanded}
         >
-          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-            Waarom dit belangrijk is
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-slate-600 group-hover/btn:text-slate-500 transition-colors">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M8 7v4M8 5.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            Waarom dit ertoe doet
           </span>
           <svg
-            className={`w-3.5 h-3.5 text-slate-600 transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}
+            className={`w-3.5 h-3.5 text-slate-600 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
           </svg>
         </button>
         {expanded && (
-          <div className="px-4 pb-3">
-            <p className="text-xs text-slate-400 leading-relaxed">{post.whyItMatters}</p>
+          <div className="px-4 pb-4 pt-1 bg-blue-500/[0.03]">
+            <p className="text-xs text-slate-400 leading-relaxed border-l-2 border-blue-500/30 pl-3">
+              {post.whyItMatters}
+            </p>
           </div>
         )}
       </div>
-
-      {/* Footer — engagement */}
-      <div className="px-4 py-2.5 border-t border-[#1e2d45] flex items-center gap-4">
-        <span className="flex items-center gap-1.5 text-xs text-slate-600">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-            <path d="M8 14S2 10 2 5.5A3.5 3.5 0 018 3.5 3.5 3.5 0 0114 5.5C14 10 8 14 8 14z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-          </svg>
-          {post.likes.toLocaleString('nl-NL')}
-        </span>
-        <span className="flex items-center gap-1.5 text-xs text-slate-600">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-            <path d="M2 4h8a2 2 0 012 2v4a2 2 0 01-2 2H6l-3 2.5V12H4a2 2 0 01-2-2V4z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-          </svg>
-          {post.reposts.toLocaleString('nl-NL')}
-        </span>
-      </div>
-    </div>
+    </article>
   );
 }
 
 // ─── Trending Sidebar ─────────────────────────────────────────────────────────
 
 function TrendingSidebar({ trending }: { trending: TrendingTopic[] }) {
+  const maxMentions = Math.max(...trending.map((t) => t.mentions));
   return (
-    <div className="bg-[#111827] border border-[#1e2d45] rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-[#1e2d45]">
-        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Trending nu</h2>
+    <div className="bg-[#0f1623] border border-[#1e2d45] rounded-xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-[#1e2d45] flex items-center gap-2">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" className="text-orange-400">
+          <path d="M8 1L10 6H15L11 9.5L12.5 15L8 12L3.5 15L5 9.5L1 6H6L8 1Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+        </svg>
+        <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest">Trending</h2>
       </div>
       <div className="divide-y divide-[#1e2d45]">
         {trending.map((item, i) => {
-          const sent = sentimentConfig[item.sentiment];
-          const hasChange = item.changePercent !== undefined;
           const isPos = (item.changePercent ?? 0) >= 0;
+          const barWidth = Math.round((item.mentions / maxMentions) * 100);
+          const sentColor = item.sentiment === 'bullish' ? 'bg-emerald-500/30' : item.sentiment === 'bearish' ? 'bg-red-500/30' : 'bg-slate-600/30';
           return (
-            <div key={item.ticker} className="px-4 py-3 flex items-center gap-3">
-              <span className="text-xs text-slate-600 tabular-nums w-4 flex-shrink-0">{i + 1}</span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-bold font-mono text-slate-100">{item.ticker}</span>
-                  <span className={`inline-flex text-[10px] px-1 py-0.5 rounded border ${sent.color}`}>
-                    {sent.label}
-                  </span>
+            <div key={item.ticker} className="px-4 py-3 relative overflow-hidden">
+              {/* Background bar */}
+              <div
+                className={`absolute left-0 top-0 bottom-0 ${sentColor} transition-all duration-500`}
+                style={{ width: `${barWidth}%` }}
+              />
+              <div className="relative flex items-center gap-3">
+                <span className="text-[10px] text-slate-600 tabular-nums w-4 flex-shrink-0 font-bold">{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-bold font-mono text-slate-100">{item.ticker}</span>
+                    {item.changePercent !== undefined && (
+                      <span className={`text-xs font-semibold tabular-nums ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {isPos ? '+' : ''}{item.changePercent.toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-500 truncate">{item.name}</p>
                 </div>
-                <p className="text-xs text-slate-500 truncate">{item.name}</p>
-              </div>
-              <div className="flex-shrink-0 text-right">
-                {hasChange && (
-                  <span className={`text-xs font-semibold tabular-nums ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {isPos ? '+' : ''}{item.changePercent!.toFixed(1)}%
-                  </span>
-                )}
-                <p className="text-[10px] text-slate-600">{item.mentions} posts</p>
+                <span className="text-[10px] text-slate-500 flex-shrink-0">{item.mentions} posts</span>
               </div>
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Who to follow cards ──────────────────────────────────────────────────────
+
+function WhoToFollow({ posts }: { posts: SocialPost[] }) {
+  const top = posts.slice(0, 4);
+  return (
+    <div className="bg-[#0f1623] border border-[#1e2d45] rounded-xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-[#1e2d45]">
+        <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest">Wie te volgen</h2>
+      </div>
+      <div className="divide-y divide-[#1e2d45]">
+        {top.map((post) => (
+          <div key={post.id} className="px-4 py-3 flex items-center gap-3">
+            <div className={`flex-shrink-0 w-8 h-8 rounded-full border flex items-center justify-center text-xs font-bold ${post.author.avatarColor}`}>
+              {post.author.initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-slate-200 truncate">{post.author.name}</p>
+              <p className="text-[10px] text-slate-500 truncate">{post.author.role.split(' · ')[1] ?? post.author.role}</p>
+            </div>
+            {post.author.verified && (
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" className="text-blue-400 flex-shrink-0">
+                <circle cx="7" cy="7" r="6.5" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="0.75"/>
+                <path d="M4.5 7L6.5 9L9.5 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -219,111 +295,111 @@ export default function SocialsPage() {
     return p.category === activeFilter;
   });
 
-  const highImportance = posts.filter((p) => p.importance === 'hoog').length;
   const bullishCount = posts.filter((p) => p.sentiment === 'bullish').length;
   const bearishCount = posts.filter((p) => p.sentiment === 'bearish').length;
+  const neutralCount = posts.length - bullishCount - bearishCount;
   const overallSentiment = bullishCount > bearishCount ? 'bullish' : bearishCount > bullishCount ? 'bearish' : 'gemengd';
   const timeLabel = getMockRelativeTime(lastUpdated);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
 
-      {/* ── Hero header ── */}
-      <div className="bg-[#111827] border border-[#1e2d45] rounded-xl px-5 py-5">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+      {/* ── Hero ── */}
+      <div className="relative bg-[#0f1623] border border-[#1e2d45] rounded-xl px-5 py-5 overflow-hidden">
+        {/* Subtle background glow */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.04] via-transparent to-purple-500/[0.03] pointer-events-none" />
+
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex items-center gap-2 mb-2">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
               </span>
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-emerald-500">Live · Markt Stemming</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-500">Live · Markt Stemming</span>
             </div>
-            <h1 className="text-xl font-bold text-slate-100">Sociale Markt Intelligentie</h1>
-            <p className="text-sm text-slate-400 mt-0.5">
-              Posts en analyses van toonaangevende namen in finance, macro en markten
+            <h1 className="text-2xl font-bold text-slate-100 tracking-tight">Markt Intelligentie</h1>
+            <p className="text-sm text-slate-400 mt-1 max-w-sm">
+              Visies van de beste beleggers ter wereld — vertaald en samengebracht
             </p>
           </div>
 
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              <div className="px-3 py-1.5 rounded-lg border bg-blue-500/10 border-blue-500/25 text-center">
-                <p className="text-[10px] text-slate-500">Signalen</p>
-                <p className="text-lg font-bold text-blue-400 tabular-nums">{highImportance}</p>
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Sentiment stats */}
+            <div className="flex items-stretch gap-1.5">
+              <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center min-w-[52px]">
+                <p className="text-lg font-bold text-emerald-400 tabular-nums leading-tight">{bullishCount}</p>
+                <p className="text-[10px] text-emerald-600 font-medium">Bullish</p>
               </div>
-              <div className={`px-3 py-1.5 rounded-lg border text-center ${
-                overallSentiment === 'bullish'
-                  ? 'bg-emerald-500/10 border-emerald-500/25'
-                  : overallSentiment === 'bearish'
-                  ? 'bg-red-500/10 border-red-500/25'
-                  : 'bg-slate-700/30 border-slate-600'
-              }`}>
-                <p className="text-[10px] text-slate-500">Stemming</p>
-                <p className={`text-sm font-bold capitalize ${
-                  overallSentiment === 'bullish' ? 'text-emerald-400' : overallSentiment === 'bearish' ? 'text-red-400' : 'text-slate-400'
-                }`}>
-                  {overallSentiment === 'bullish' ? 'Bullish' : overallSentiment === 'bearish' ? 'Bearish' : 'Gemengd'}
-                </p>
+              <div className="px-3 py-2 rounded-lg bg-slate-700/30 border border-slate-600/30 text-center min-w-[52px]">
+                <p className="text-lg font-bold text-slate-400 tabular-nums leading-tight">{neutralCount}</p>
+                <p className="text-[10px] text-slate-600 font-medium">Neutraal</p>
+              </div>
+              <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-center min-w-[52px]">
+                <p className="text-lg font-bold text-red-400 tabular-nums leading-tight">{bearishCount}</p>
+                <p className="text-[10px] text-red-600 font-medium">Bearish</p>
               </div>
             </div>
-            <p className="text-[10px] text-slate-600">Bijgewerkt {timeLabel}</p>
           </div>
         </div>
 
         {/* Sentiment bar */}
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
-            <span>Bearish ({bearishCount})</span>
-            <span>Neutraal ({posts.length - bullishCount - bearishCount})</span>
-            <span>Bullish ({bullishCount})</span>
+        <div className="relative mt-4 space-y-1.5">
+          <div className="flex h-2 rounded-full overflow-hidden bg-slate-800">
+            <div className="bg-emerald-500/70 transition-all duration-700" style={{ width: `${(bullishCount / posts.length) * 100}%` }} />
+            <div className="bg-slate-600/50 transition-all duration-700" style={{ width: `${(neutralCount / posts.length) * 100}%` }} />
+            <div className="bg-red-500/70 transition-all duration-700" style={{ width: `${(bearishCount / posts.length) * 100}%` }} />
           </div>
-          <div className="flex h-1.5 rounded-full overflow-hidden gap-0.5">
-            <div
-              className="bg-red-500/70 rounded-full"
-              style={{ width: `${(bearishCount / posts.length) * 100}%` }}
-            />
-            <div
-              className="bg-slate-600 rounded-full"
-              style={{ width: `${((posts.length - bullishCount - bearishCount) / posts.length) * 100}%` }}
-            />
-            <div
-              className="bg-emerald-500/70 rounded-full"
-              style={{ width: `${(bullishCount / posts.length) * 100}%` }}
-            />
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-600">
+              Stemming:{' '}
+              <span className={overallSentiment === 'bullish' ? 'text-emerald-500' : overallSentiment === 'bearish' ? 'text-red-500' : 'text-slate-400'}>
+                {overallSentiment === 'bullish' ? 'Overwegend Bullish' : overallSentiment === 'bearish' ? 'Overwegend Bearish' : 'Gemengd'}
+              </span>
+            </span>
+            <span className="text-[10px] text-slate-600">Bijgewerkt {timeLabel} geleden</span>
           </div>
         </div>
       </div>
 
-      {/* ── Filter bar ── */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        {filterLabels.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setActiveFilter(key)}
-            className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors duration-150 ${
-              activeFilter === key
-                ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
-                : 'bg-[#111827] border-[#1e2d45] text-slate-400 hover:text-slate-200 hover:border-[#2a3f60]'
-            }`}
-          >
-            {label}
-            {key !== 'alles' && key !== 'bullish' && key !== 'bearish' && (
-              <span className="ml-1.5 text-[10px] text-slate-600">
-                {posts.filter((p) => p.category === key).length}
+      {/* ── Filter pills ── */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+        {filters.map(({ key, label }) => {
+          const count = key === 'alles' ? posts.length
+            : key === 'bullish' ? bullishCount
+            : key === 'bearish' ? bearishCount
+            : posts.filter((p) => p.category === key).length;
+          return (
+            <button
+              key={key}
+              onClick={() => setActiveFilter(key)}
+              className={`flex-shrink-0 flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all duration-150 ${
+                activeFilter === key
+                  ? key === 'bullish'
+                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                    : key === 'bearish'
+                    ? 'bg-red-500/20 border-red-500/40 text-red-300'
+                    : 'bg-blue-500/20 border-blue-500/40 text-blue-300'
+                  : 'bg-[#0f1623] border-[#1e2d45] text-slate-400 hover:text-slate-200 hover:border-[#2d4a6e]'
+              }`}
+            >
+              {label}
+              <span className={`text-[10px] tabular-nums ${activeFilter === key ? 'opacity-70' : 'text-slate-600'}`}>
+                {count}
               </span>
-            )}
-          </button>
-        ))}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Main layout ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_268px] gap-5">
 
-        {/* Post feed */}
-        <div className="space-y-4">
+        {/* Feed */}
+        <div className="space-y-3">
           {filtered.length === 0 ? (
-            <div className="bg-[#111827] border border-[#1e2d45] rounded-xl px-5 py-10 text-center">
-              <p className="text-slate-500 text-sm">Geen posts voor dit filter.</p>
+            <div className="bg-[#0f1623] border border-[#1e2d45] rounded-xl px-5 py-12 text-center">
+              <p className="text-slate-500 text-sm">Geen berichten voor dit filter.</p>
             </div>
           ) : (
             filtered.map((post) => <PostCard key={post.id} post={post} />)
@@ -333,12 +409,11 @@ export default function SocialsPage() {
         {/* Sidebar */}
         <div className="space-y-4">
           <TrendingSidebar trending={trending} />
-
-          {/* Disclaimer */}
-          <div className="bg-[#0f1623] border border-[#1e2d45] rounded-xl px-4 py-3">
+          <WhoToFollow posts={posts} />
+          <div className="px-4 py-3 bg-[#0f1623] border border-[#1e2d45] rounded-xl">
             <p className="text-[10px] text-slate-600 leading-relaxed">
-              Posts zijn illustratief en bedoeld als marktintelligentie. Geen beleggingsadvies.
-              Doe altijd eigen onderzoek voor financiële beslissingen.
+              Berichten zijn illustratief en vertaald voor educatieve doeleinden.
+              Geen beleggingsadvies. Doe altijd eigen onderzoek.
             </p>
           </div>
         </div>
