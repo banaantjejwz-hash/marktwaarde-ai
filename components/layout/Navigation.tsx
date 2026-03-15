@@ -195,26 +195,36 @@ export default function Navigation() {
       <nav
         className="fixed bottom-0 left-0 right-0 z-30 md:hidden bg-[#0d1420] border-t border-[#1a2640]"
         aria-label="Mobiele navigatie"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <ul className="flex items-center justify-around h-14 px-1">
+        <ul className="flex items-center justify-around h-16 px-2">
           {[...primaryNavItems.slice(0, 4), aiNavItem].map((item) => {
             const isActive = isItemActive(item);
             const isAI = item.accent === 'blue';
             return (
-              <li key={item.href}>
+              <li key={item.href} className="flex-1">
                 <Link
                   href={item.href}
-                  className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-[9px] transition-colors duration-150 ${
+                  className={`flex flex-col items-center justify-center gap-1 py-2 min-h-[52px] w-full text-[10px] transition-colors duration-150 ${
                     isActive
                       ? isAI ? 'text-blue-400' : 'text-slate-100'
-                      : isAI ? 'text-blue-500/70 hover:text-blue-400' : 'text-slate-600 hover:text-slate-300'
+                      : isAI ? 'text-blue-500/70 active:text-blue-400' : 'text-slate-600 active:text-slate-300'
                   }`}
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  <span className={isActive && !isAI ? 'text-slate-200' : ''}>{item.icon}</span>
-                  <span className="truncate max-w-[44px] text-center font-medium">
-                    {item.label === 'Avondbriefing' ? 'Avond' : item.label === 'AI Adviseur' ? 'AI Chat' : item.label}
+                  <span className={`flex-shrink-0 ${isActive && !isAI ? 'text-slate-200' : ''}`}>
+                    {item.icon}
                   </span>
+                  {isActive && (
+                    <span className="truncate text-center font-medium leading-none">
+                      {item.label === 'Avondbriefing' ? 'Avond' : item.label === 'AI Adviseur' ? 'AI' : item.label}
+                    </span>
+                  )}
+                  {!isActive && (
+                    <span className="truncate text-center font-medium leading-none opacity-80">
+                      {item.label === 'Avondbriefing' ? 'Avond' : item.label === 'AI Adviseur' ? 'AI' : item.label}
+                    </span>
+                  )}
                 </Link>
               </li>
             );
