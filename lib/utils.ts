@@ -167,7 +167,7 @@ export function getMockRelativeTimeShort(
   }
 }
 
-export function formatPrice(value: number, currency = 'USD'): string {
+export function formatPrice(value: number, currency = 'EUR'): string {
   const fractionDigits = value > 1000 ? 0 : 2;
   return new Intl.NumberFormat('nl-NL', {
     style: 'currency',

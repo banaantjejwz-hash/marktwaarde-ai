@@ -5,7 +5,7 @@ interface ChangeIndicatorProps {
   currency?: string;
 }
 
-function formatAbsolute(value: number, currency = 'USD'): string {
+function formatAbsolute(value: number, currency = 'EUR'): string {
   const sign = value >= 0 ? '+' : '';
   try {
     return (
@@ -31,7 +31,7 @@ export default function ChangeIndicator({
   value,
   showAbsolute = false,
   absoluteValue,
-  currency = 'USD',
+  currency = 'EUR',
 }: ChangeIndicatorProps) {
   if (value === 0) {
     return (

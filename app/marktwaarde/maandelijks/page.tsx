@@ -139,7 +139,7 @@ export default function MaandelijksPage() {
               <div>
                 <p className="text-xs text-amber-500 uppercase tracking-wide font-medium mb-1">Bitcoin koers</p>
                 <p className="text-2xl font-bold text-slate-100 tabular-nums font-mono">
-                  {formatPrice(bitcoinMarket.currentPrice, 'USD')}
+                  {formatPrice(bitcoinMarket.currentPrice, 'EUR')}
                 </p>
                 <div className="flex items-center gap-3 mt-1 flex-wrap">
                   <span className="text-xs text-slate-500">24u:</span>

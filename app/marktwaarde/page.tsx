@@ -235,7 +235,7 @@ export default function OverzichtPage() {
             <div className="px-5 py-4 flex flex-col gap-1">
               <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Koers</p>
               <p className="text-xl font-bold text-amber-400 tabular-nums font-mono">
-                {formatPrice(bitcoinMarket.currentPrice, 'USD')}
+                {formatPrice(bitcoinMarket.currentPrice, 'EUR')}
               </p>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs text-slate-500">24u:</span>

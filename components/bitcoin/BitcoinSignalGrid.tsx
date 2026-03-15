@@ -27,7 +27,7 @@ const importanceConfig: Record<
 function formatBtcPrice(value: number): string {
   return new Intl.NumberFormat('nl-NL', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'EUR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);
