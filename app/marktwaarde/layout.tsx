@@ -11,7 +11,7 @@ export default function MarktWaardeLayout({
       <Navigation />
       <MarketStatusBar />
       <main
-        className="min-h-screen pt-12 md:ml-[220px] pb-16 md:pb-0"
+        className="min-h-screen pt-12 md:ml-[220px] pb-16 md:pb-0 bg-[#0a0e1a]"
         id="main-content"
       >
         {children}

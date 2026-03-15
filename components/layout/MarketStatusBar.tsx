@@ -100,48 +100,38 @@ export default function MarketStatusBar() {
   return (
     <header
       className="fixed top-0 left-0 right-0 md:left-[220px] h-12 z-20
-                 bg-[#111827] border-b border-[#1e2d45]
-                 flex items-center px-4 gap-4"
+                 bg-[#0d1420] border-b border-[#1a2640]
+                 flex items-center px-4 gap-3"
       aria-label="Marktstatus"
     >
-      {/* Clock — hidden until mounted to prevent hydration mismatch */}
-      <span className="text-xs font-mono text-slate-300 tabular-nums flex-shrink-0 min-w-[60px]">
-        {mounted && now ? formatClock(now) : <span className="opacity-0">00:00:00</span>}
-      </span>
-
-      {/* Date */}
-      <span className="text-xs text-slate-500 hidden sm:block flex-shrink-0 capitalize min-w-[160px]">
-        {mounted && now ? formatDutchDate(now) : ''}
-      </span>
-
-      {/* Divider */}
-      <span className="hidden sm:block w-px h-4 bg-slate-700 flex-shrink-0" />
-
-      {/* Session badge — stable fallback until mounted */}
+      {/* Session badge */}
       {mounted && sessionInfo ? (
         <SessionBadge info={sessionInfo} />
       ) : (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-medium bg-slate-700/30 border border-slate-700">
-          <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-          <span className="opacity-0 select-none">Markt gesloten</span>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-medium bg-slate-800/50 border border-slate-700/50">
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+          <span className="opacity-0 select-none text-slate-500">Laden</span>
         </span>
       )}
 
-      {/* Mock data badge */}
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs text-slate-500 bg-slate-800 border border-slate-700 flex-shrink-0">
-        Voorbeelddata
+      {/* Divider */}
+      <span className="hidden sm:block w-px h-3.5 bg-slate-700/60 flex-shrink-0" />
+
+      {/* Date */}
+      <span className="text-xs text-slate-500 hidden sm:block flex-shrink-0 capitalize">
+        {mounted && now ? formatDutchDate(now) : ''}
       </span>
 
       {/* Spacer */}
       <span className="flex-1" />
 
-      {/* Refresh indicator */}
-      <span className="text-xs text-slate-600 hidden md:block flex-shrink-0">
-        Ververst 15 min geleden
+      {/* Clock */}
+      <span className="text-xs font-mono text-slate-500 tabular-nums flex-shrink-0">
+        {mounted && now ? formatClock(now) : <span className="opacity-0 select-none">00:00:00</span>}
       </span>
 
       {/* ET time */}
-      <span className="text-xs font-mono text-slate-600 hidden lg:block flex-shrink-0 tabular-nums min-w-[56px]">
+      <span className="text-xs font-mono text-slate-700 hidden lg:block flex-shrink-0 tabular-nums">
         {mounted && sessionInfo ? sessionInfo.usTime : ''}
       </span>
     </header>
