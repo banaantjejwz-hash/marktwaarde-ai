@@ -167,19 +167,19 @@ export default function Navigation() {
         aria-label="Hoofdnavigatie"
       >
         {/* Brand */}
-        <div className="px-5 pt-5 pb-4 border-b border-[#1a2640]">
+        <Link href="/marktwaarde" className="px-5 pt-5 pb-4 border-b border-[#1a2640] block hover:bg-white/2 transition-colors duration-150 group">
           <div className="flex items-center gap-2.5 mb-0.5">
-            <div className="w-6 h-6 rounded bg-blue-500/20 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
+            <div className="w-6 h-6 rounded bg-blue-500/20 border border-blue-500/30 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/30 transition-colors duration-150">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                 <path d="M1 9L4 6L6 8L11 3" stroke="#60a5fa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <span className="text-xs font-bold tracking-wide text-slate-100 uppercase">
+            <span className="text-xs font-bold tracking-wide text-slate-100 uppercase group-hover:text-white transition-colors duration-150">
               Market Operator
             </span>
           </div>
           <p className="text-[10px] text-slate-600 tracking-wide pl-8">AI Investeringsplatform</p>
-        </div>
+        </Link>
 
         {/* Nav items */}
         <div className="flex-1 py-3 overflow-y-auto">

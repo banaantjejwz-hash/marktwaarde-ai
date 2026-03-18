@@ -1,15 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { socialsData, MOCK_REFERENCE_NOW } from '@/lib/mockData';
+import { socialsData as mockSocialsData } from '@/lib/mockData';
+import { useRedditPosts } from '@/hooks/useRedditPosts';
 import type { SocialPost, SocialCategory, TrendingTopic } from '@/lib/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getMockRelativeTime(timestamp: string): string {
-  const ref = new Date(MOCK_REFERENCE_NOW).getTime();
+function getRelativeTime(timestamp: string): string {
+  const ref = Date.now();
   const ts = new Date(timestamp).getTime();
   const diffMs = ref - ts;
+  if (diffMs < 0) return 'nu';
   const diffMin = Math.floor(diffMs / 60000);
   if (diffMin < 60) return `${diffMin}m`;
   const diffH = Math.floor(diffMin / 60);
@@ -76,7 +78,7 @@ const importanceBadge = {
 
 function PostCard({ post }: { post: SocialPost }) {
   const [expanded, setExpanded] = useState(false);
-  const timeLabel = getMockRelativeTime(post.timestamp);
+  const timeLabel = getRelativeTime(post.timestamp);
   const stripe = sentimentStripe[post.sentiment];
   const sbadge = sentimentBadge[post.sentiment];
   const slabel = sentimentLabel[post.sentiment];
@@ -286,7 +288,11 @@ function WhoToFollow({ posts }: { posts: SocialPost[] }) {
 
 export default function SocialsPage() {
   const [activeFilter, setActiveFilter] = useState<Filter>('alles');
-  const { posts, trending, lastUpdated } = socialsData;
+  const { data: liveData, loading: redditLoading } = useRedditPosts();
+
+  const activeSocialsData = liveData ?? mockSocialsData;
+  const isLive = !!liveData;
+  const { posts, trending, lastUpdated } = activeSocialsData;
 
   const filtered = posts.filter((p) => {
     if (activeFilter === 'alles') return true;
@@ -299,7 +305,7 @@ export default function SocialsPage() {
   const bearishCount = posts.filter((p) => p.sentiment === 'bearish').length;
   const neutralCount = posts.length - bullishCount - bearishCount;
   const overallSentiment = bullishCount > bearishCount ? 'bullish' : bearishCount > bullishCount ? 'bearish' : 'gemengd';
-  const timeLabel = getMockRelativeTime(lastUpdated);
+  const timeLabel = getRelativeTime(lastUpdated);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
@@ -316,11 +322,15 @@ export default function SocialsPage() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-500">Live · Markt Stemming</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-500">
+                {isLive ? 'Live · Reddit Community' : redditLoading ? 'Laden…' : 'Demo Data'}
+              </span>
             </div>
             <h1 className="text-2xl font-bold text-slate-100 tracking-tight">Markt Intelligentie</h1>
             <p className="text-sm text-slate-400 mt-1 max-w-sm">
-              Visies van de beste beleggers ter wereld — vertaald en samengebracht
+              {isLive
+                ? 'Live posts uit r/investing, r/stocks, r/Bitcoin & r/wallstreetbets'
+                : 'Community sentiment & marktdiscussies'}
             </p>
           </div>
 

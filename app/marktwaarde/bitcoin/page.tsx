@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import {
-  bitcoinMarket,
+  bitcoinMarket as mockBitcoinMarket,
   tradeSetups,
   allNewsItems,
   monthlyCategoryComparison,
   MOCK_REFERENCE_NOW,
 } from '@/lib/mockData';
+import { useBitcoin } from '@/hooks/useBitcoin';
 import ChangeIndicator from '@/components/common/ChangeIndicator';
 import ScoreBar from '@/components/common/ScoreBar';
 import NewsList from '@/components/news/NewsList';
@@ -105,43 +106,7 @@ const recoKey: RecoKey =
     : 'bevestiging-nodig';
 const reco = recoConfig[recoKey];
 
-// ─── "Why" signals ────────────────────────────────────────────────────────────
-
-const whySignals = [
-  {
-    icon: '↑',
-    title: 'Ervaren houders verkopen niet',
-    technical: 'LTH HODL Wave stabiel op 75,8%',
-    plain:
-      '75,8% van alle Bitcoin wordt vastgehouden door mensen die al meer dan 6 maanden bezitten. Die verkopen nu niet. Dit is een teken van langdurige overtuiging in de markt.',
-    impact: 'Positief voor de prijs op termijn',
-    colorText: 'text-emerald-400',
-    bgClass: 'bg-emerald-500/10 border-emerald-500/20',
-    impactBg: 'bg-emerald-500/15 border-emerald-500/25 text-emerald-400',
-  },
-  {
-    icon: '↓',
-    title: 'Grote fondsen trekken zich terug',
-    technical: 'ETF-uitstroom: −€832 mln in 7 dagen',
-    plain:
-      'In de afgelopen week hebben grote beleggers voor €832 miljoen aan Bitcoin-fondsen verkocht. Dit creëert verkoopdruk en zet de prijs op korte termijn onder druk.',
-    impact: 'Negatief op korte termijn',
-    colorText: 'text-red-400',
-    bgClass: 'bg-red-500/10 border-red-500/20',
-    impactBg: 'bg-red-500/15 border-red-500/25 text-red-400',
-  },
-  {
-    icon: '→',
-    title: 'Markt is bang — mogelijk koopmoment',
-    technical: 'Fear & Greed Index: 42 (Angst)',
-    plain:
-      'De Fear & Greed-index meet of de markt hebzuchtig of bang is. Op 42 is de markt bang. Historisch gezien koopt men het best als anderen bang zijn — maar timing blijft onzeker.',
-    impact: 'Neutraal — wacht op bevestiging',
-    colorText: 'text-slate-300',
-    bgClass: 'bg-slate-700/30 border-slate-600/40',
-    impactBg: 'bg-slate-700/50 border-slate-600 text-slate-400',
-  },
-] as const;
+// ─── "Why" signals (built inside component to use live data) ──────────────────
 
 // ─── Key levels ───────────────────────────────────────────────────────────────
 
@@ -149,7 +114,7 @@ const keyLevels = [
   {
     label: 'Steun 2',
     helper: 'Dieper vangnet',
-    value: bitcoinMarket.keyLevels.support2,
+    value: mockBitcoinMarket.keyLevels.support2,
     note: 'Als de eerste steun bezwijkt, is dit het volgende strategische koopgebied.',
     colorText: 'text-emerald-300',
     colorBg: 'bg-emerald-500/5 border-emerald-500/15',
@@ -158,7 +123,7 @@ const keyLevels = [
   {
     label: 'Steun 1',
     helper: 'Interessante koopzone',
-    value: bitcoinMarket.keyLevels.support1,
+    value: mockBitcoinMarket.keyLevels.support1,
     note: 'Huidige steunzone. Bounce kansrijk als volume dit bevestigt.',
     colorText: 'text-emerald-400',
     colorBg: 'bg-emerald-500/8 border-emerald-500/25',
@@ -167,7 +132,7 @@ const keyLevels = [
   {
     label: 'Weerstand 1',
     helper: 'Eerste horde omhoog',
-    value: bitcoinMarket.keyLevels.resistance1,
+    value: mockBitcoinMarket.keyLevels.resistance1,
     note: 'Doorbreken hiervan bevestigt herstel richting €72k.',
     colorText: 'text-red-400',
     colorBg: 'bg-red-500/8 border-red-500/25',
@@ -176,7 +141,7 @@ const keyLevels = [
   {
     label: 'Weerstand 2',
     helper: 'Tweede zone',
-    value: bitcoinMarket.keyLevels.resistance2,
+    value: mockBitcoinMarket.keyLevels.resistance2,
     note: 'Doel bij sterker herstelscenario. Verwacht aanbod in deze zone.',
     colorText: 'text-red-300',
     colorBg: 'bg-red-500/5 border-red-500/15',
@@ -241,6 +206,66 @@ const signalExplanations: Record<string, string> = {
 
 export default function BitcoinPage() {
   const [tab, setTab] = useState<'today' | 'month' | 'longterm'>('today');
+  const { data: liveData } = useBitcoin();
+
+  // Use live data when available, fall back to mock
+  const bitcoinMarket = liveData?.ok ? {
+    ...mockBitcoinMarket,
+    currentPrice: liveData.price,
+    changePercent24h: liveData.changePercent24h,
+    changePercent7d: liveData.changePercent7d,
+    fearGreedIndex: liveData.fearGreedIndex,
+    fearGreedLabel: liveData.fearGreedLabel,
+    dominance: liveData.dominance,
+    dataStatus: 'live' as const,
+    lastUpdated: liveData.lastUpdated,
+  } : mockBitcoinMarket;
+  const isLive = !!(liveData?.ok);
+
+  const fgIndex = bitcoinMarket.fearGreedIndex;
+  const fgLabel = liveData?.ok ? liveData.fearGreedLabel : 'Angst';
+  const fgIcon = fgIndex >= 75 ? '↑' : fgIndex >= 50 ? '→' : '↓';
+  const fgSentimentText = fgIndex >= 75 ? 'Extreme hebzucht — voorzichtigheid geboden'
+    : fgIndex >= 55 ? 'Hebzucht — markt is optimistisch'
+    : fgIndex >= 45 ? 'Neutraal — wacht op bevestiging'
+    : fgIndex >= 25 ? 'Angst — historisch potentieel koopmoment'
+    : 'Extreme angst — mogelijk sterk koopmoment maar timing onzeker';
+
+  const whySignals = [
+    {
+      icon: '↑',
+      title: 'Ervaren houders verkopen niet',
+      technical: 'LTH HODL Wave stabiel op 75,8%',
+      plain:
+        '75,8% van alle Bitcoin wordt vastgehouden door mensen die al meer dan 6 maanden bezitten. Die verkopen nu niet. Dit is een teken van langdurige overtuiging in de markt.',
+      impact: 'Positief voor de prijs op termijn',
+      colorText: 'text-emerald-400',
+      bgClass: 'bg-emerald-500/10 border-emerald-500/20',
+      impactBg: 'bg-emerald-500/15 border-emerald-500/25 text-emerald-400',
+    },
+    {
+      icon: '↓',
+      title: 'Grote fondsen trekken zich terug',
+      technical: 'ETF-uitstroom: −€832 mln in 7 dagen',
+      plain:
+        'In de afgelopen week hebben grote beleggers voor €832 miljoen aan Bitcoin-fondsen verkocht. Dit creëert verkoopdruk en zet de prijs op korte termijn onder druk.',
+      impact: 'Negatief op korte termijn',
+      colorText: 'text-red-400',
+      bgClass: 'bg-red-500/10 border-red-500/20',
+      impactBg: 'bg-red-500/15 border-red-500/25 text-red-400',
+    },
+    {
+      icon: fgIcon,
+      title: `Markt sentiment: ${fgLabel}`,
+      technical: `Fear & Greed Index: ${fgIndex}${isLive ? ' (live)' : ''}`,
+      plain:
+        `De Fear & Greed-index meet of de markt hebzuchtig of bang is. Op ${fgIndex} is de stemming: ${fgLabel}. Historisch gezien koopt men het best als anderen bang zijn — maar timing blijft onzeker.`,
+      impact: fgSentimentText,
+      colorText: fgIndex >= 60 ? 'text-amber-400' : fgIndex >= 45 ? 'text-slate-300' : 'text-emerald-400',
+      bgClass: fgIndex >= 60 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-slate-700/30 border-slate-600/40',
+      impactBg: fgIndex >= 60 ? 'bg-amber-500/15 border-amber-500/25 text-amber-400' : 'bg-slate-700/50 border-slate-600 text-slate-400',
+    },
+  ];
 
   return (
     <div className="px-4 py-6 sm:px-6 max-w-4xl space-y-8">
@@ -268,8 +293,15 @@ export default function BitcoinPage() {
                 <span className="text-xs text-slate-500">7d</span>
                 <ChangeIndicator value={bitcoinMarket.changePercent7d} />
               </div>
-              <p className="text-xs text-slate-600 mt-2">
-                Koersdata: {UPDATED_LABEL} (15 min vertraging)
+              <p className="text-xs text-slate-600 mt-2 flex items-center gap-1.5">
+                {isLive ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-emerald-600">Live koers via CoinGecko</span>
+                  </>
+                ) : (
+                  `Koersdata: ${UPDATED_LABEL} (15 min vertraging)`
+                )}
               </p>
             </div>
 

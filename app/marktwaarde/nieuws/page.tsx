@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
-import { allNewsItems, relevantNewsItems } from '@/lib/mockData';
+import { allNewsItems as mockNewsItems } from '@/lib/mockData';
+import { useNews } from '@/hooks/useNews';
 import NewsList from '@/components/news/NewsList';
 import NewsCard from '@/components/news/NewsCard';
 import SectionHeader from '@/components/common/SectionHeader';
@@ -80,18 +81,22 @@ function QuickSummaryCard({
 }
 
 export default function NieuwsPage() {
-  const highestImpact = useMemo(() => getHighestImpact(allNewsItems), []);
-  const highestRelevance = useMemo(() => getHighestRelevance(allNewsItems), []);
-  const btcTopItem = useMemo(() => getBitcoinHighestRelevance(allNewsItems), []);
-  const top3Relevant = useMemo(() => getTop3Relevant(allNewsItems), []);
+  const { news: liveNews, loading: newsLoading } = useNews();
+  const allNewsItems = liveNews.length > 0 ? liveNews : mockNewsItems;
+  const relevantNewsItems = allNewsItems.filter(n => n.isRelevant);
+  const isLive = liveNews.length > 0;
 
-  // Use the most-recent lastUpdated from the most relevant item as a proxy for "feed updated"
+  const highestImpact = useMemo(() => getHighestImpact(allNewsItems), [allNewsItems]);
+  const highestRelevance = useMemo(() => getHighestRelevance(allNewsItems), [allNewsItems]);
+  const btcTopItem = useMemo(() => getBitcoinHighestRelevance(allNewsItems), [allNewsItems]);
+  const top3Relevant = useMemo(() => getTop3Relevant(allNewsItems), [allNewsItems]);
+
   const latestTimestamp = useMemo(() => {
     const sorted = [...allNewsItems].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
     return sorted[0]?.timestamp ?? new Date().toISOString();
-  }, []);
+  }, [allNewsItems]);
 
   return (
     <div className="px-4 py-4 sm:px-6 sm:py-6 max-w-7xl space-y-10">
@@ -115,6 +120,17 @@ export default function NieuwsPage() {
 
         {/* Counts */}
         <div className="flex items-center gap-2 flex-wrap">
+          {isLive && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-400 font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Live nieuws
+            </span>
+          )}
+          {newsLoading && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-600 bg-slate-800 text-xs text-slate-400">
+              Laden…
+            </span>
+          )}
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1e2d45] bg-[#111827] text-xs text-slate-400">
             <span className="font-bold text-slate-200">{allNewsItems.length}</span>
             items totaal
@@ -343,7 +359,7 @@ export default function NieuwsPage() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3 flex-wrap">
             <DataStatusBadge
-              status="vertraagd"
+              status={isLive ? 'live' : 'vertraagd'}
               lastUpdated={latestTimestamp}
               showTime={true}
             />
